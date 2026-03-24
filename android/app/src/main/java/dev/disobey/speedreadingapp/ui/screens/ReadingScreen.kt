@@ -18,13 +18,13 @@ fun ReadingScreen(manager: AppManager, onToggleTheme: () -> Unit = {}) {
     var wpmPreview by remember { mutableFloatStateOf(state.wpm.toFloat()) }
     var groupPreview by remember { mutableFloatStateOf(state.wordsPerGroup.toFloat()) }
     var seekPreview by remember { mutableFloatStateOf(state.progressPercent) }
+    var isDragging by remember { mutableStateOf(false) }
 
     // Sync preview values when core state updates (e.g., after Foregrounded restores session)
     LaunchedEffect(state.wpm) { wpmPreview = state.wpm.toFloat() }
     LaunchedEffect(state.wordsPerGroup) { groupPreview = state.wordsPerGroup.toFloat() }
     LaunchedEffect(state.progressPercent) {
-        // Only sync seek if user is not dragging (approximated by checking if not playing)
-        if (!state.isPlaying) seekPreview = state.progressPercent
+        if (!isDragging) seekPreview = state.progressPercent
     }
 
     val isFinished = state.progressPercent >= 99.9f && !state.isPlaying && state.totalWords > 0UL
@@ -54,8 +54,12 @@ fun ReadingScreen(manager: AppManager, onToggleTheme: () -> Unit = {}) {
         // Progress seek bar
         Slider(
             value = seekPreview,
-            onValueChange = { seekPreview = it },
+            onValueChange = { newValue ->
+                isDragging = true
+                seekPreview = newValue
+            },
             onValueChangeFinished = {
+                isDragging = false
                 manager.dispatch(AppAction.SeekToProgress(percent = seekPreview))
             },
             valueRange = 0f..100f,
