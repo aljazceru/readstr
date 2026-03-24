@@ -9,3 +9,4 @@ speedreading-app_core = { path = "../../rust" }
 iced = "0.14"
 flume = "0.11"
 dirs-next = "2"
+rfd = "0.15"
