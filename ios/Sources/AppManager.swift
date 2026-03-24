@@ -36,6 +36,15 @@ final class AppManager: AppReconciler {
             if s.rev <= lastRevApplied { return }
             lastRevApplied = s.rev
             state = s
+        case .playbackTick(_, _, _):
+            // PlaybackTick fires at WPM cadence (up to ~17/sec at 1000 WPM).
+            // Read full state snapshot — cheapest correct approach for a reading app.
+            // Evolve to partial field update only if profiling shows stutter at 1000 WPM.
+            let latest = rust.state()
+            if latest.rev >= lastRevApplied {
+                lastRevApplied = latest.rev
+                state = latest
+            }
         }
     }
 
