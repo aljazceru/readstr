@@ -10,10 +10,11 @@ use flume::Sender;
 use crate::{
     actions::AppAction,
     core::{
+        history::{self, FileSessionRow},
         parser::detect_and_parse,
         session::{open_db, restore_session, save_session, SessionData},
     },
-    state::{AppState, Screen, WordDisplay, compute_orp_anchor},
+    state::{AppState, HistoryEntry, Screen, WordDisplay, compute_orp_anchor},
     updates::{AppUpdate, CoreMsg, InternalEvent},
 };
 
@@ -35,15 +36,19 @@ pub struct ActorState {
     /// True if playback was active when the app entered the background.
     /// Set by BackgroundPause (lifecycle-triggered); cleared on Foregrounded.
     pub was_playing_before_background: bool,
+    /// SHA-256 hash of the currently open file; None for paste sessions.
+    pub current_file_hash: Option<String>,
+    /// Shared with FfiApp::get_history() — actor refreshes after history mutations.
+    shared_history: Arc<RwLock<Vec<HistoryEntry>>>,
 }
 
 impl ActorState {
-    pub fn new(data_dir: &str) -> Self {
+    pub fn new(data_dir: &str, shared_history: Arc<RwLock<Vec<HistoryEntry>>>) -> Self {
         let db = open_db(data_dir).ok();
         let mut state = AppState::initial();
 
         // Restore WPM and words_per_group from session (if exists)
-        // Word position restored after text is loaded (need text hash to validate)
+        // Word position restored after text is loaded (keyed by file_hash in file_sessions)
         if let Some(ref conn) = db {
             if let Ok(Some(session)) = restore_session(conn) {
                 state.wpm = session.wpm;
@@ -59,6 +64,8 @@ impl ActorState {
             db,
             state,
             was_playing_before_background: false,
+            current_file_hash: None,
+            shared_history,
         }
     }
 
@@ -73,7 +80,7 @@ impl ActorState {
             AppAction::LoadText { text } => {
                 self.stop_playback();
                 let words = crate::core::parser::tokenize(&text);
-                self.on_parse_complete(words);
+                self.on_parse_complete(words, None, None, None);
             }
 
             AppAction::FileSelected { path } => {
@@ -214,9 +221,60 @@ impl ActorState {
                 }
             }
 
-            // Stub arms — wired in Plan 04 (history actor integration)
-            AppAction::ResumeFile { file_hash: _ } => {}
-            AppAction::DeleteSession { file_hash: _ } => {}
+            AppAction::ResumeFile { file_hash } => {
+                if let Some(ref conn) = self.db {
+                    if let Ok(Some(saved)) = history::lookup_file_session(conn, &file_hash) {
+                        let path = saved.file_path.clone();
+                        let path_for_name = path.clone();
+                        let tx = core_tx.clone();
+                        runtime.spawn(async move {
+                            let result = tokio::task::spawn_blocking(move || detect_and_parse(&path)).await;
+                            match result {
+                                Ok(Ok((words, hash))) => {
+                                    let file_name = std::path::Path::new(&path_for_name)
+                                        .file_name()
+                                        .and_then(|n| n.to_str())
+                                        .unwrap_or("")
+                                        .to_string();
+                                    let _ = tx.send(CoreMsg::Internal(InternalEvent::ParseComplete {
+                                        words,
+                                        file_hash: Some(hash),
+                                        file_name: Some(file_name),
+                                        file_path: Some(path_for_name),
+                                    }));
+                                }
+                                Ok(Err(e)) => {
+                                    let _ = tx.send(CoreMsg::Internal(InternalEvent::ParseError {
+                                        message: e.to_string(),
+                                    }));
+                                }
+                                Err(e) => {
+                                    let _ = tx.send(CoreMsg::Internal(InternalEvent::ParseError {
+                                        message: format!("Parse task panicked: {e}"),
+                                    }));
+                                }
+                            }
+                        });
+                        self.stop_playback();
+                        self.state.is_loading = true;
+                        self.state.error = None;
+                    } else {
+                        self.state.error = Some(format!("File not found in history: {file_hash}"));
+                    }
+                }
+            }
+
+            AppAction::DeleteSession { file_hash } => {
+                if let Some(ref conn) = self.db {
+                    history::delete_file_session(conn, &file_hash).ok();
+                    // Clear current_file_hash if the active file was deleted (prevents re-insert on next Pause)
+                    if self.current_file_hash.as_deref() == Some(&file_hash) {
+                        self.current_file_hash = None;
+                    }
+                    self.refresh_shared_history(conn);
+                    self.state.history_revision += 1;
+                }
+            }
         }
     }
 
@@ -231,10 +289,7 @@ impl ActorState {
     ) {
         match event {
             InternalEvent::ParseComplete { words, file_hash, file_name, file_path } => {
-                // file_hash, file_name, file_path will be wired to on_parse_complete in Plan 04
-                // For now accept the fields to satisfy the compiler; the _ prefix suppresses unused warnings
-                let _ = (file_hash, file_name, file_path);
-                self.on_parse_complete(words);
+                self.on_parse_complete(words, file_hash, file_name, file_path);
                 emit(&mut self.state, shared_state, update_tx);
             }
 
@@ -264,6 +319,7 @@ impl ActorState {
                     self.state.current_word_index = self.state.total_words.saturating_sub(1);
                     self.state.progress_percent = 100.0;
                     self.update_display(self.state.current_word_index as usize);
+                    self.save_current_session(); // persist progress at end-of-doc (D-09)
                     emit(&mut self.state, shared_state, update_tx);
                     return;
                 }
@@ -297,7 +353,13 @@ impl ActorState {
         }
     }
 
-    fn on_parse_complete(&mut self, words: Vec<String>) {
+    fn on_parse_complete(
+        &mut self,
+        words: Vec<String>,
+        file_hash: Option<String>,
+        file_name: Option<String>,
+        file_path: Option<String>,
+    ) {
         self.state.is_loading = false;
         self.state.total_words = words.len() as u64;
         self.state.current_word_index = 0;
@@ -305,13 +367,46 @@ impl ActorState {
         self.state.is_playing = false;
         self.playback_start_index = 0;
 
-        // Check for session resume
-        let text_hash = SessionData::compute_text_hash(&words.join(" "));
-        if let Some(ref conn) = self.db {
-            if let Ok(Some(session)) = restore_session(conn) {
-                if session.text_hash == text_hash && session.word_index < words.len() as u64 {
-                    self.state.current_word_index = session.word_index;
-                    self.playback_start_index = session.word_index;
+        // Set current_file_hash for the rest of this session
+        self.current_file_hash = file_hash.clone();
+
+        // Restore word position from file_sessions, or insert new row (HIST-01/02)
+        if let (Some(ref hash), Some(ref name), Some(ref path)) = (&file_hash, &file_name, &file_path) {
+            if let Some(ref conn) = self.db {
+                match history::lookup_file_session(conn, hash) {
+                    Ok(Some(saved)) if saved.word_index < words.len() as u64 => {
+                        // Silent restore — no dialog (HIST-02)
+                        self.state.current_word_index = saved.word_index;
+                        self.playback_start_index = saved.word_index;
+                        self.state.wpm = saved.wpm;
+                        self.state.words_per_group = saved.words_per_group;
+                    }
+                    Ok(None) => {
+                        // First time this file is opened — insert row with word_index=0
+                        let row = FileSessionRow {
+                            file_hash: hash.clone(),
+                            file_name: name.clone(),
+                            file_path: path.clone(),
+                            word_index: 0,
+                            total_words: words.len() as u64,
+                            wpm: self.state.wpm,
+                            words_per_group: self.state.words_per_group,
+                            opened_at: 0, // ignored by COALESCE — DB sets strftime('%s','now')
+                            updated_at: 0,
+                        };
+                        history::upsert_file_session(conn, &row).ok();
+                        self.refresh_shared_history(conn);
+                        self.state.history_revision += 1;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // For paste sessions (no file_hash): restore WPM/words_per_group from sessions singleton
+        if file_hash.is_none() {
+            if let Some(ref conn) = self.db {
+                if let Ok(Some(session)) = restore_session(conn) {
                     self.state.wpm = session.wpm;
                     self.state.words_per_group = session.words_per_group;
                 }
@@ -373,14 +468,52 @@ impl ActorState {
     fn save_current_session(&self) {
         if let Some(ref conn) = self.db {
             if !self.words.is_empty() {
+                // sessions singleton (id=1) — WPM/words_per_group for all sessions (D-10)
                 let session = SessionData {
-                    text_hash: SessionData::compute_text_hash(&self.words.join(" ")),
+                    text_hash: String::new(), // vestigial; empty string never matches so no conflict
                     word_index: self.state.current_word_index,
                     wpm: self.state.wpm,
                     words_per_group: self.state.words_per_group,
                 };
                 save_session(conn, &session).ok();
+
+                // Per-file progress (D-09) — only for file sessions
+                if let Some(ref hash) = self.current_file_hash {
+                    history::update_progress(
+                        conn,
+                        hash,
+                        self.state.current_word_index,
+                        self.state.total_words,
+                        self.state.wpm,
+                        self.state.words_per_group,
+                    ).ok();
+                }
             }
+        }
+    }
+
+    /// Reload history from DB and push to shared_history so FfiApp::get_history() returns fresh data.
+    fn refresh_shared_history(&self, conn: &rusqlite::Connection) {
+        let rows = history::load_history(conn).unwrap_or_default();
+        let entries: Vec<HistoryEntry> = rows
+            .into_iter()
+            .map(|r| {
+                let progress_percent = r.progress_percent();
+                HistoryEntry {
+                    file_hash: r.file_hash,
+                    file_name: r.file_name,
+                    file_path: r.file_path,
+                    word_index: r.word_index,
+                    total_words: r.total_words,
+                    progress_percent,
+                    wpm: r.wpm,
+                    words_per_group: r.words_per_group,
+                }
+            })
+            .collect();
+        match self.shared_history.write() {
+            Ok(mut g) => *g = entries,
+            Err(p) => *p.into_inner() = entries,
         }
     }
 }

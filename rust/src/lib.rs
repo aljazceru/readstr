@@ -63,9 +63,7 @@ impl FfiApp {
                 .build()
                 .expect("tokio runtime");
 
-            let mut actor = ActorState::new(&data_dir_clone);
-            // Plan 04 will wire shared_history_for_actor into ActorState
-            let _shared_history = shared_history_for_actor;
+            let mut actor = ActorState::new(&data_dir_clone, shared_history_for_actor);
 
             // Emit initial state
             emit(&mut actor.state, &shared_for_actor, &update_tx);
