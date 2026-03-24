@@ -2,6 +2,7 @@
 //! These tests read actual fixture files and verify non-empty word arrays.
 
 use speedreading_app_core::core::parser::{detect_and_parse, parse_epub, parse_pdf, parse_txt, tokenize};
+use speedreading_app_core::state::{compute_orp_anchor, WordSegment};
 
 fn fixture_path(name: &str) -> String {
     let manifest = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR");
@@ -54,4 +55,42 @@ fn test_tokenize_paste_text() {
     assert_eq!(words.len(), 4);
     assert_eq!(words[0], "The");
     assert_eq!(words[3], "fox");
+}
+
+// SC-3: ORP anchor pipeline — parse -> compute_orp_anchor per word -> Vec<WordSegment>
+// Verifies the full data pipeline for each supported format.
+
+fn check_orp_pipeline(fixture: &str, words: Vec<String>) {
+    assert!(!words.is_empty(), "{fixture}: expected non-empty word list");
+    let segments: Vec<WordSegment> = words.iter().map(|w| compute_orp_anchor(w)).collect();
+    assert_eq!(segments.len(), words.len(), "{fixture}: segment count must equal word count");
+    for (i, (word, seg)) in words.iter().zip(segments.iter()).enumerate() {
+        let reconstructed = format!("{}{}{}", seg.before, seg.anchor, seg.after);
+        assert_eq!(
+            reconstructed, *word,
+            "{fixture} word[{i}] '{word}': before+anchor+after must equal original word"
+        );
+        if !word.is_empty() {
+            assert_eq!(
+                seg.anchor.chars().count(),
+                1,
+                "{fixture} word[{i}] '{word}': anchor must be exactly 1 char"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_orp_anchor_pipeline_txt() {
+    check_orp_pipeline("sample.txt", parse_txt(&fixture_path("sample.txt")).unwrap());
+}
+
+#[test]
+fn test_orp_anchor_pipeline_epub() {
+    check_orp_pipeline("sample.epub", parse_epub(&fixture_path("sample.epub")).unwrap());
+}
+
+#[test]
+fn test_orp_anchor_pipeline_pdf() {
+    check_orp_pipeline("sample.pdf", parse_pdf(&fixture_path("sample.pdf")).unwrap());
 }
