@@ -199,13 +199,13 @@ impl ActorState {
         match event {
             InternalEvent::ParseComplete { words } => {
                 self.on_parse_complete(words);
-                emit(&self.state, shared_state, update_tx);
+                emit(&mut self.state, shared_state, update_tx);
             }
 
             InternalEvent::ParseError { message } => {
                 self.state.is_loading = false;
                 self.state.error = Some(message);
-                emit(&self.state, shared_state, update_tx);
+                emit(&mut self.state, shared_state, update_tx);
             }
 
             InternalEvent::WordAdvance => {
@@ -227,7 +227,7 @@ impl ActorState {
                     self.state.current_word_index = self.state.total_words.saturating_sub(1);
                     self.state.progress_percent = 100.0;
                     self.update_display(self.state.current_word_index as usize);
-                    emit(&self.state, shared_state, update_tx);
+                    emit(&mut self.state, shared_state, update_tx);
                     return;
                 }
 
@@ -368,15 +368,50 @@ pub fn compute_word_index(
 
 /// Write updated state to shared_state and send FullState update.
 /// Called after every action except WordAdvance ticks.
+/// Increments state.rev before cloning so every platform's update guard
+/// (`if latest.rev > state.rev`) evaluates to true after the first dispatch.
 pub fn emit(
-    state: &AppState,
+    state: &mut AppState,
     shared_state: &Arc<RwLock<AppState>>,
     update_tx: &Sender<AppUpdate>,
 ) {
+    state.rev += 1;
     let snapshot = state.clone();
     match shared_state.write() {
         Ok(mut g) => *g = snapshot.clone(),
         Err(p) => *p.into_inner() = snapshot.clone(),
     }
     let _ = update_tx.send(AppUpdate::FullState(snapshot));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Arc, RwLock};
+    use flume::unbounded;
+
+    #[test]
+    fn test_emit_increments_rev() {
+        let (update_tx, update_rx) = unbounded::<crate::updates::AppUpdate>();
+        let shared = Arc::new(RwLock::new(crate::state::AppState::initial()));
+        let mut state = crate::state::AppState::initial();
+
+        emit(&mut state, &shared, &update_tx);
+        assert_eq!(state.rev, 1, "rev must be 1 after first emit");
+
+        emit(&mut state, &shared, &update_tx);
+        assert_eq!(state.rev, 2, "rev must be 2 after second emit");
+
+        // Verify updates were sent
+        let first = update_rx.try_recv().expect("first update missing");
+        let second = update_rx.try_recv().expect("second update missing");
+        match first {
+            crate::updates::AppUpdate::FullState(s) => assert_eq!(s.rev, 1),
+            _ => panic!("expected FullState"),
+        }
+        match second {
+            crate::updates::AppUpdate::FullState(s) => assert_eq!(s.rev, 2),
+            _ => panic!("expected FullState"),
+        }
+    }
 }

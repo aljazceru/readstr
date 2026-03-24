@@ -11,10 +11,13 @@ pub mod updates;
 use std::sync::{Arc, RwLock};
 use std::thread;
 
-use actions::AppAction;
+// Re-export public types so platform crates can use them without sub-module paths
+pub use actions::AppAction;
+pub use state::{AppState, Router, Screen, WordDisplay, WordSegment};
+pub use updates::AppUpdate;
+
 use core::actor::{ActorState, emit};
-use state::AppState;
-use updates::{AppUpdate, CoreMsg};
+use updates::CoreMsg;
 
 /// Callback interface implemented by each platform reconciler.
 /// Called from the listen_for_updates loop on a dedicated thread.
@@ -60,13 +63,13 @@ impl FfiApp {
             let mut actor = ActorState::new(&data_dir_clone);
 
             // Emit initial state
-            emit(&actor.state, &shared_for_actor, &update_tx);
+            emit(&mut actor.state, &shared_for_actor, &update_tx);
 
             while let Ok(msg) = core_rx.recv() {
                 match msg {
                     CoreMsg::Action(action) => {
                         actor.handle_action(action, &runtime, &core_tx_for_actor);
-                        emit(&actor.state, &shared_for_actor, &update_tx);
+                        emit(&mut actor.state, &shared_for_actor, &update_tx);
                     }
                     CoreMsg::Internal(event) => {
                         // handle_internal calls emit internally for all internal events
