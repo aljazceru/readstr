@@ -1,52 +1,41 @@
 package dev.disobey.speedreadingapp.ui
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import dev.disobey.speedreadingapp.AppManager
 import dev.disobey.speedreadingapp.rust.AppAction
+import dev.disobey.speedreadingapp.rust.Screen
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainApp(manager: AppManager) {
-    var nameInput by remember { mutableStateOf("") }
     val state = manager.state
+    val router = state.router
+    val currentScreen = router.screenStack.lastOrNull() ?: router.defaultScreen
 
-    Scaffold(
-        topBar = {
-            TopAppBar(title = { Text("Speedreading App") })
-        },
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Text(
-                state.greeting,
-                style = MaterialTheme.typography.headlineMedium,
-            )
+    BackHandler(enabled = router.screenStack.isNotEmpty()) {
+        manager.dispatch(AppAction.PopScreen)
+    }
 
-            OutlinedTextField(
-                value = nameInput,
-                onValueChange = { nameInput = it },
-                label = { Text("Enter your name") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-            )
-
-            Button(
-                onClick = { manager.dispatch(AppAction.SetName(nameInput)) },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Greet")
-            }
+    AnimatedContent(
+        targetState = currentScreen,
+        label = "screen_navigation"
+    ) { screen ->
+        when (screen) {
+            Screen.LANDING -> LandingScreen(manager = manager)
+            Screen.READING -> ReadingScreen(manager = manager)
         }
     }
+}
+
+// Temporary stubs — replaced by Plans 02 and 03
+@Composable
+fun LandingScreen(manager: AppManager) {
+    Text("Landing — coming soon")
+}
+
+@Composable
+fun ReadingScreen(manager: AppManager) {
+    Text("Reading — coming soon")
 }
