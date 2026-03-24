@@ -192,31 +192,10 @@ impl App {
             .center_x(Fill)
             .center_y(Fill)
             .into(),
-            App::Loaded { state, .. } => {
+            App::Loaded { state, paste_content, wpm_preview, group_preview, .. } => {
                 match state.router.current_screen() {
-                    Screen::Landing => container(
-                        column![
-                            text("SpeedReader").size(24),
-                            text("(Landing — Phase 2 in progress)").size(14),
-                        ]
-                        .spacing(12)
-                        .padding(24),
-                    )
-                    .center_x(Fill)
-                    .center_y(Fill)
-                    .into(),
-                    Screen::Reading => container(
-                        column![
-                            text("SpeedReader").size(24),
-                            text(format!("{} WPM", state.wpm)).size(18),
-                            text("(Reading — Phase 2 in progress)").size(14),
-                        ]
-                        .spacing(12)
-                        .padding(24),
-                    )
-                    .center_x(Fill)
-                    .center_y(Fill)
-                    .into(),
+                    Screen::Landing => views::landing::view(state, paste_content),
+                    Screen::Reading => views::reading::view(state, *wpm_preview, *group_preview),
                 }
             }
         }
