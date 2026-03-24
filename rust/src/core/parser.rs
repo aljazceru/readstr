@@ -2,6 +2,7 @@
 //! All parsers return Vec<String> — the actor thread calls compute_orp_anchor per word.
 
 use anyhow::Context;
+use sha2::{Sha256, Digest};
 
 /// Tokenize text by splitting on whitespace, filtering empty tokens.
 /// Used by all parsers and by LoadText (paste) action.
@@ -76,20 +77,78 @@ pub fn parse_pdf(path: &str) -> anyhow::Result<Vec<String>> {
     Ok(words)
 }
 
+/// Compute SHA-256 of raw file bytes. Returns 64-char lowercase hex string.
+pub fn hash_file_bytes(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    format!("{:x}", hasher.finalize())
+}
+
 /// Detect file format from extension and dispatch to the correct parser.
-pub fn detect_and_parse(path: &str) -> anyhow::Result<Vec<String>> {
+/// Returns (words, file_hash) where file_hash is the SHA-256 of the raw file bytes.
+pub fn detect_and_parse(path: &str) -> anyhow::Result<(Vec<String>, String)> {
     let ext = std::path::Path::new(path)
         .extension()
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_lowercase();
 
+    // Reject unsupported extensions before reading file bytes
     match ext.as_str() {
-        "txt" => parse_txt(path),
-        "epub" => parse_epub(path),
-        "pdf" => parse_pdf(path),
+        "txt" | "epub" | "pdf" => {}
         other => anyhow::bail!("Unsupported file format: .{other}"),
     }
+
+    let bytes = std::fs::read(path)
+        .with_context(|| format!("Failed to read file: {path}"))?;
+    let hash = hash_file_bytes(&bytes);
+
+    let words = match ext.as_str() {
+        "txt" => {
+            let text = String::from_utf8_lossy(&bytes);
+            let words = tokenize(&text);
+            if words.is_empty() {
+                anyhow::bail!("The text file appears to be empty.");
+            }
+            words
+        }
+        "epub" => {
+            use epub::doc::EpubDoc;
+            let cursor = std::io::Cursor::new(bytes);
+            let mut doc = EpubDoc::from_reader(cursor)
+                .map_err(|e| anyhow::anyhow!("EPUB parse error: {e}"))?;
+            let mut full_text = String::new();
+            if let Some((content, _mime)) = doc.get_current_str() {
+                full_text.push_str(&strip_html(&content));
+            }
+            while doc.go_next() {
+                if let Some((content, _mime)) = doc.get_current_str() {
+                    full_text.push(' ');
+                    full_text.push_str(&strip_html(&content));
+                }
+            }
+            let words = tokenize(&full_text);
+            if words.is_empty() {
+                anyhow::bail!("EPUB appears to be empty or could not be read.");
+            }
+            words
+        }
+        "pdf" => {
+            let text = pdf_extract::extract_text_from_mem(&bytes)
+                .map_err(|e| anyhow::anyhow!("PDF parse error: {e}"))?;
+            let words = tokenize(&text);
+            if words.is_empty() {
+                anyhow::bail!(
+                    "This PDF contains only images — no text layer found. \
+                     Try a PDF with selectable text, or paste the text directly."
+                );
+            }
+            words
+        }
+        _ => unreachable!("extension already validated above"),
+    };
+
+    Ok((words, hash))
 }
 
 /// Strip HTML tags using a simple char-by-char state machine.
@@ -160,5 +219,25 @@ mod tests {
     fn test_tokenize_whitespace_only() {
         let words = tokenize("   \n\t  ");
         assert!(words.is_empty());
+    }
+
+    #[test]
+    fn test_hash_file_bytes_stable() {
+        let h1 = hash_file_bytes(b"hello world");
+        let h2 = hash_file_bytes(b"hello world");
+        assert_eq!(h1, h2);
+        assert_eq!(h1.len(), 64);
+    }
+
+    #[test]
+    fn test_hash_file_bytes_different() {
+        let h1 = hash_file_bytes(b"aaa");
+        let h2 = hash_file_bytes(b"bbb");
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn test_hash_file_bytes_length() {
+        assert_eq!(hash_file_bytes(b"anything").len(), 64);
     }
 }

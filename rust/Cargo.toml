@@ -14,3 +14,4 @@ epub = "2"
 rusqlite = { version = "0.36", features = ["bundled"] }
 tokio = { version = "1", features = ["rt-multi-thread", "time", "sync", "macros"] }
 anyhow = "1"
+sha2 = "0.10"
