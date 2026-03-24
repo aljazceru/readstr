@@ -12,5 +12,5 @@ uniffi = "= 0.31.0"
 pdf-extract = "0.10"
 epub = "2"
 rusqlite = { version = "0.36", features = ["bundled"] }
-tokio = { version = "1", features = ["rt-multi-thread", "time"] }
+tokio = { version = "1", features = ["rt-multi-thread", "time", "sync", "macros"] }
 anyhow = "1"
