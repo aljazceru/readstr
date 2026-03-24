@@ -1,12 +1,16 @@
-use iced::widget::{column, container, text};
+use iced::widget::{column, container, text, text_editor};
 use iced::{Element, Fill, Subscription, Task};
 use std::sync::Arc;
-use speedreading_app_core::{AppAction, AppState, AppUpdate, FfiApp};
+use speedreading_app_core::{AppAction, AppState, AppUpdate, FfiApp, Screen};
+
+mod views;
+mod widgets;
 
 fn main() -> iced::Result {
     iced::application(App::new, App::update, App::view)
         .title("SpeedReader")
         .subscription(App::subscription)
+        .theme(App::theme)
         .run()
 }
 
@@ -78,12 +82,35 @@ enum App {
     Loaded {
         manager: AppManager,
         state: AppState,
+        paste_content: text_editor::Content,
+        wpm_preview: u32,
+        group_preview: u32,
+        dark_mode: bool,
     },
 }
 
 #[derive(Debug, Clone)]
 enum Message {
+    // Existing — preserve
     CoreUpdated,
+    // Navigation
+    GoBack,
+    // File operations
+    OpenFile,
+    FileChosen(String),
+    FileCancelled,
+    // Text paste
+    PasteAction(text_editor::Action),
+    LoadPastedText,
+    // Playback
+    WpmDragged(u32),
+    WpmCommitted,
+    GroupDragged(u32),
+    GroupCommitted,
+    // Theme
+    ToggleTheme,
+    // Generic dispatch wrapper
+    Dispatch(AppAction),
 }
 
 impl App {
@@ -91,7 +118,16 @@ impl App {
         let app = match AppManager::new() {
             Ok(manager) => {
                 let state = manager.state();
-                Self::Loaded { manager, state }
+                let wpm = state.wpm;
+                let wpg = state.words_per_group;
+                Self::Loaded {
+                    manager,
+                    state,
+                    paste_content: text_editor::Content::new(),
+                    wpm_preview: wpm,
+                    group_preview: wpg,
+                    dark_mode: false,
+                }
             }
             Err(error) => Self::BootError { error },
         };
@@ -111,14 +147,35 @@ impl App {
     fn update(&mut self, message: Message) -> Task<Message> {
         match self {
             App::BootError { .. } => {}
-            App::Loaded { manager, state } => match message {
-                Message::CoreUpdated => {
-                    let latest = manager.state();
-                    if latest.rev > state.rev {
-                        *state = latest;
+            App::Loaded { manager, state, paste_content, wpm_preview, group_preview, dark_mode } => {
+                match message {
+                    Message::CoreUpdated => {
+                        let latest = manager.state();
+                        if latest.rev > state.rev {
+                            *state = latest;
+                        }
                     }
+                    Message::GoBack => {}
+                    Message::OpenFile => {}
+                    Message::FileChosen(_) | Message::FileCancelled => {}
+                    Message::PasteAction(action) => {
+                        paste_content.perform(action);
+                    }
+                    Message::LoadPastedText => {}
+                    Message::WpmDragged(v) => {
+                        *wpm_preview = v;
+                    }
+                    Message::WpmCommitted => {}
+                    Message::GroupDragged(v) => {
+                        *group_preview = v;
+                    }
+                    Message::GroupCommitted => {}
+                    Message::ToggleTheme => {
+                        *dark_mode = !*dark_mode;
+                    }
+                    Message::Dispatch(_) => {}
                 }
-            },
+            }
         }
         Task::none()
     }
@@ -135,18 +192,40 @@ impl App {
             .center_x(Fill)
             .center_y(Fill)
             .into(),
-            App::Loaded { state, .. } => container(
-                column![
-                    text("SpeedReader").size(24),
-                    text(format!("{} WPM", state.wpm)).size(18),
-                    text("Loading... (Phase 2 UI coming soon)").size(14),
-                ]
-                .padding(24)
-                .spacing(12),
-            )
-            .center_x(Fill)
-            .center_y(Fill)
-            .into(),
+            App::Loaded { state, .. } => {
+                match state.router.current_screen() {
+                    Screen::Landing => container(
+                        column![
+                            text("SpeedReader").size(24),
+                            text("(Landing — Phase 2 in progress)").size(14),
+                        ]
+                        .spacing(12)
+                        .padding(24),
+                    )
+                    .center_x(Fill)
+                    .center_y(Fill)
+                    .into(),
+                    Screen::Reading => container(
+                        column![
+                            text("SpeedReader").size(24),
+                            text(format!("{} WPM", state.wpm)).size(18),
+                            text("(Reading — Phase 2 in progress)").size(14),
+                        ]
+                        .spacing(12)
+                        .padding(24),
+                    )
+                    .center_x(Fill)
+                    .center_y(Fill)
+                    .into(),
+                }
+            }
+        }
+    }
+
+    fn theme(app: &App) -> iced::Theme {
+        match app {
+            App::Loaded { dark_mode: true, .. } => iced::Theme::Dark,
+            _ => iced::Theme::Light,
         }
     }
 }
