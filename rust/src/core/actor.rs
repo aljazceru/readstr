@@ -221,7 +221,8 @@ impl ActorState {
                 ) + self.playback_start_index;
                 let new_index = new_index.min(self.state.total_words.saturating_sub(1));
 
-                if new_index >= self.state.total_words.saturating_sub(1) {
+                let wpg = self.state.words_per_group.max(1) as u64;
+                if new_index >= self.state.total_words.saturating_sub(wpg) {
                     // End of document
                     self.stop_playback();
                     self.state.current_word_index = self.state.total_words.saturating_sub(1);
@@ -239,8 +240,18 @@ impl ActorState {
                     0.0
                 };
                 let display = build_display(&self.words, new_index as usize, self.state.words_per_group as usize);
+                self.state.display = Some(display.clone());
 
-                // Emit granular PlaybackTick — avoids cloning full AppState per tick
+                // Update shared_state so desktop reads the new position via manager.state().
+                // Without this, the desktop sees the frozen state from the Play-press emit
+                // and only refreshes at end-of-document.
+                self.state.rev += 1;
+                match shared_state.write() {
+                    Ok(mut g) => *g = self.state.clone(),
+                    Err(p) => *p.into_inner() = self.state.clone(),
+                }
+
+                // Also emit granular PlaybackTick for reconcilers that handle it directly.
                 let _ = update_tx.send(AppUpdate::PlaybackTick {
                     display,
                     progress_percent: self.state.progress_percent,
@@ -264,6 +275,7 @@ impl ActorState {
             if let Ok(Some(session)) = restore_session(conn) {
                 if session.text_hash == text_hash && session.word_index < words.len() as u64 {
                     self.state.current_word_index = session.word_index;
+                    self.playback_start_index = session.word_index;
                     self.state.wpm = session.wpm;
                     self.state.words_per_group = session.words_per_group;
                 }
@@ -389,6 +401,187 @@ mod tests {
     use super::*;
     use std::sync::{Arc, RwLock};
     use flume::unbounded;
+    use crate::core::session::{open_db, save_session, SessionData};
+
+    // --- Task 1: Resume position tests ---
+
+    /// After on_parse_complete with a matching session (word_index=50),
+    /// actor.playback_start_index must equal session.word_index.
+    #[test]
+    fn test_resume_position_syncs_playback_start_index() {
+        let data_dir = std::env::temp_dir()
+            .join(format!("rmp_test_resume_{}", std::process::id()))
+            .to_string_lossy()
+            .to_string();
+        std::fs::create_dir_all(&data_dir).unwrap();
+
+        // Pre-seed the DB with a session at word_index=50
+        let conn = open_db(&data_dir).unwrap();
+        let words: Vec<String> = (0..100).map(|i| format!("word{i}")).collect();
+        let text_hash = SessionData::compute_text_hash(&words.join(" "));
+        save_session(&conn, &SessionData {
+            text_hash,
+            word_index: 50,
+            wpm: 300,
+            words_per_group: 1,
+        }).unwrap();
+        drop(conn);
+
+        let mut actor = ActorState::new(&data_dir);
+        actor.on_parse_complete(words);
+
+        assert_eq!(
+            actor.playback_start_index, 50,
+            "playback_start_index must equal session.word_index=50 after session restore"
+        );
+    }
+
+    /// After on_parse_complete with no prior session, playback_start_index must be 0.
+    #[test]
+    fn test_no_session_playback_start_index_is_zero() {
+        let data_dir = std::env::temp_dir()
+            .join(format!("rmp_test_nosession_{}", std::process::id()))
+            .to_string_lossy()
+            .to_string();
+        std::fs::create_dir_all(&data_dir).unwrap();
+
+        let mut actor = ActorState::new(&data_dir);
+        let words: Vec<String> = (0..20).map(|i| format!("w{i}")).collect();
+        actor.on_parse_complete(words);
+
+        assert_eq!(
+            actor.playback_start_index, 0,
+            "playback_start_index must be 0 when no session exists"
+        );
+    }
+
+    /// After on_parse_complete with a mismatched text_hash, playback_start_index must be 0.
+    #[test]
+    fn test_hash_mismatch_playback_start_index_is_zero() {
+        let data_dir = std::env::temp_dir()
+            .join(format!("rmp_test_hashmismatch_{}", std::process::id()))
+            .to_string_lossy()
+            .to_string();
+        std::fs::create_dir_all(&data_dir).unwrap();
+
+        // Save a session with a different text_hash
+        let conn = open_db(&data_dir).unwrap();
+        save_session(&conn, &SessionData {
+            text_hash: "different-hash-999".to_string(),
+            word_index: 75,
+            wpm: 300,
+            words_per_group: 1,
+        }).unwrap();
+        drop(conn);
+
+        let mut actor = ActorState::new(&data_dir);
+        // These words produce a different hash than "different-hash-999"
+        let words: Vec<String> = (0..30).map(|i| format!("xyz{i}")).collect();
+        actor.on_parse_complete(words);
+
+        assert_eq!(
+            actor.playback_start_index, 0,
+            "playback_start_index must be 0 when text hash does not match stored session"
+        );
+    }
+
+    // --- Regression tests for words-per-group end-of-doc stuck bug ---
+
+    /// compute_word_index must clamp to a value that the end-of-doc condition can reach.
+    /// For wpg=2, total_words=5: last group starts at index 3 (words 3+4).
+    /// The end-of-doc check must fire when new_index == 3, not require index 4 (which
+    /// compute_word_index never returns when wpg=2).
+    #[test]
+    fn test_compute_word_index_max_does_not_exceed_last_group_start() {
+        // Simulate a long elapsed time — index should saturate at total_words - wpg.
+        let very_long = Duration::from_secs(3600);
+
+        // odd total_words, wpg=2
+        let idx = compute_word_index(very_long, 300, 2, 5);
+        assert_eq!(idx, 3, "last group start for wpg=2 total=5 should be 3, got {idx}");
+
+        // even total_words, wpg=2
+        let idx = compute_word_index(very_long, 300, 2, 6);
+        assert_eq!(idx, 4, "last group start for wpg=2 total=6 should be 4, got {idx}");
+
+        // wpg=3, total=7: last full group starts at index 4 (covers words 4,5,6)
+        let idx = compute_word_index(very_long, 300, 3, 7);
+        assert_eq!(idx, 4, "last group start for wpg=3 total=7 should be 4, got {idx}");
+
+        // wpg=1 still works
+        let idx = compute_word_index(very_long, 300, 1, 5);
+        assert_eq!(idx, 4, "last group start for wpg=1 total=5 should be 4, got {idx}");
+    }
+
+    /// The end-of-doc condition in WordAdvance must fire when new_index reaches the
+    /// last group start (total_words - wpg), not just when it reaches total_words - 1.
+    ///
+    /// This test drives an ActorState through the WordAdvance handler and confirms
+    /// is_playing becomes false after playback reaches the last group.
+    #[test]
+    fn test_word_advance_stops_at_end_of_doc_with_words_per_group_2() {
+        use crate::actions::AppAction;
+        use crate::updates::AppUpdate;
+
+        let data_dir = std::env::temp_dir()
+            .join(format!("rmp_test_{}", std::process::id()))
+            .to_string_lossy()
+            .to_string();
+
+        let (core_tx, _core_rx) = flume::unbounded::<crate::updates::CoreMsg>();
+        let (update_tx, update_rx) = flume::unbounded::<AppUpdate>();
+        let shared = Arc::new(RwLock::new(crate::state::AppState::initial()));
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .unwrap();
+
+        let mut actor = ActorState::new(&data_dir);
+
+        // Load 5 words (odd count)
+        actor.handle_action(
+            AppAction::LoadText {
+                text: "one two three four five".to_string(),
+            },
+            &runtime,
+            &core_tx,
+        );
+        // Drain any queued updates
+        while update_rx.try_recv().is_ok() {}
+
+        // Set words_per_group=2
+        actor.handle_action(
+            AppAction::SetWordsPerGroup { n: 2 },
+            &runtime,
+            &core_tx,
+        );
+
+        // Manually set playback state as if we're at the last group start (index 3).
+        // This simulates the actor receiving a WordAdvance tick after playing up to that point.
+        actor.state.is_playing = true;
+        actor.state.total_words = 5;
+        actor.playback_start_index = 0;
+        // Set playback_start to a time far enough in the past that compute_word_index saturates.
+        actor.playback_start = Some(Instant::now() - Duration::from_secs(3600));
+
+        actor.handle_internal(
+            crate::updates::InternalEvent::WordAdvance,
+            &runtime,
+            &core_tx,
+            &update_tx,
+            &shared,
+        );
+
+        assert!(
+            !actor.state.is_playing,
+            "is_playing must be false after end-of-doc with words_per_group=2 (odd word count)"
+        );
+        assert_eq!(
+            actor.state.progress_percent, 100.0,
+            "progress_percent must be 100 at end-of-doc"
+        );
+    }
 
     #[test]
     fn test_emit_increments_rev() {
