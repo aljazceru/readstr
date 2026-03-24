@@ -88,4 +88,7 @@ dependencies {
 
     // UniFFI JNA
     implementation("net.java.dev.jna:jna:5.14.0@aar")
+
+    // DataStore for settings/theme persistence
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
 }
