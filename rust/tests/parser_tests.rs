@@ -36,8 +36,9 @@ fn test_parse_pdf_fixture() {
 #[test]
 fn test_detect_and_parse_txt() {
     let path = fixture_path("sample.txt");
-    let words = detect_and_parse(&path).expect("detect_and_parse failed for .txt");
+    let (words, hash) = detect_and_parse(&path).expect("detect_and_parse failed for .txt");
     assert!(!words.is_empty());
+    assert_eq!(hash.len(), 64, "file hash must be 64-char hex");
 }
 
 #[test]

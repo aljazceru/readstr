@@ -80,12 +80,23 @@ impl ActorState {
                 self.stop_playback();
                 self.state.is_loading = true;
                 self.state.error = None;
+                let file_name = std::path::Path::new(&path)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("")
+                    .to_string();
+                let file_path = path.clone();
                 let tx = core_tx.clone();
                 runtime.spawn(async move {
                     let result = tokio::task::spawn_blocking(move || detect_and_parse(&path)).await;
                     match result {
-                        Ok(Ok(words)) => {
-                            let _ = tx.send(CoreMsg::Internal(InternalEvent::ParseComplete { words }));
+                        Ok(Ok((words, file_hash))) => {
+                            let _ = tx.send(CoreMsg::Internal(InternalEvent::ParseComplete {
+                                words,
+                                file_hash: Some(file_hash),
+                                file_name: Some(file_name),
+                                file_path: Some(file_path),
+                            }));
                         }
                         Ok(Err(e)) => {
                             let _ = tx.send(CoreMsg::Internal(InternalEvent::ParseError {
@@ -215,7 +226,10 @@ impl ActorState {
         shared_state: &Arc<RwLock<AppState>>,
     ) {
         match event {
-            InternalEvent::ParseComplete { words } => {
+            InternalEvent::ParseComplete { words, file_hash, file_name, file_path } => {
+                // file_hash, file_name, file_path will be wired to on_parse_complete in Plan 04
+                // For now accept the fields to satisfy the compiler; the _ prefix suppresses unused warnings
+                let _ = (file_hash, file_name, file_path);
                 self.on_parse_complete(words);
                 emit(&mut self.state, shared_state, update_tx);
             }

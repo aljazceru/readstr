@@ -146,15 +146,20 @@ mod tests {
 
     #[test]
     fn test_compute_text_hash_stable() {
-        let hash1 = SessionData::compute_text_hash("hello world");
-        let hash2 = SessionData::compute_text_hash("hello world");
-        assert_eq!(hash1, hash2);
+        // Per D-19: test SHA-256 of bytes, not old prefix+length
+        use crate::core::parser::hash_file_bytes;
+        let h1 = hash_file_bytes(b"hello world");
+        let h2 = hash_file_bytes(b"hello world");
+        assert_eq!(h1, h2, "SHA-256 must be deterministic");
+        assert_eq!(h1.len(), 64, "SHA-256 hex must be 64 chars");
     }
 
     #[test]
     fn test_compute_text_hash_different_texts() {
-        let h1 = SessionData::compute_text_hash("text one");
-        let h2 = SessionData::compute_text_hash("text two");
-        assert_ne!(h1, h2);
+        // Per D-19: different byte inputs must produce different hashes
+        use crate::core::parser::hash_file_bytes;
+        let h1 = hash_file_bytes(b"text one");
+        let h2 = hash_file_bytes(b"text two");
+        assert_ne!(h1, h2, "Different inputs must produce different SHA-256 hashes");
     }
 }
