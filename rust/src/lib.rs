@@ -6,6 +6,7 @@ use flume::{Receiver, Sender};
 
 uniffi::setup_scaffolding!();
 
+pub mod core;
 pub mod state;
 pub mod actions;
 pub mod updates;
