@@ -68,7 +68,7 @@ fn test_actor_end_of_document_stop() {
     let shared_state = Arc::new(RwLock::new(speedreading_app_core::state::AppState::initial()));
 
     // Create actor with 5 words loaded manually (bypass DB by using "")
-    let mut actor = ActorState::new("");
+    let mut actor = ActorState::new("", std::sync::Arc::new(std::sync::RwLock::new(vec![])));
     actor.words = vec![
         "one".to_string(),
         "two".to_string(),
@@ -131,7 +131,7 @@ fn test_word_advance_tick_updates_shared_state() {
 
     // 10-word document, playing from the start
     let words: Vec<String> = (1u32..=10).map(|i| format!("word{i}")).collect();
-    let mut actor = ActorState::new("");
+    let mut actor = ActorState::new("", std::sync::Arc::new(std::sync::RwLock::new(vec![])));
     actor.words = words;
     actor.state.total_words = 10;
     actor.state.wpm = 300;
