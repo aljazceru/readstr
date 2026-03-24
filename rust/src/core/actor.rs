@@ -32,6 +32,9 @@ pub struct ActorState {
     pub db: Option<rusqlite::Connection>,
     /// The AppState that will be emitted. Actor mutates this directly.
     pub state: AppState,
+    /// True if playback was active when the app entered the background.
+    /// Set by BackgroundPause (lifecycle-triggered); cleared on Foregrounded.
+    pub was_playing_before_background: bool,
 }
 
 impl ActorState {
@@ -55,6 +58,7 @@ impl ActorState {
             playback_start_index: 0,
             db,
             state,
+            was_playing_before_background: false,
         }
     }
 
@@ -181,8 +185,22 @@ impl ActorState {
                 self.state.error = None;
             }
 
+            AppAction::BackgroundPause => {
+                if self.state.is_playing {
+                    self.was_playing_before_background = true;
+                    self.stop_playback();
+                    self.save_current_session();
+                }
+            }
+
             AppAction::Foregrounded => {
-                // No-op in Phase 1 — mobile lifecycle handled in Phase 3/4
+                if self.was_playing_before_background && !self.words.is_empty() {
+                    self.was_playing_before_background = false;
+                    self.playback_start_index = self.state.current_word_index;
+                    self.start_playback(runtime, core_tx);
+                } else {
+                    self.was_playing_before_background = false;
+                }
             }
         }
     }
@@ -482,6 +500,144 @@ mod tests {
         assert_eq!(
             actor.playback_start_index, 0,
             "playback_start_index must be 0 when text hash does not match stored session"
+        );
+    }
+
+    // --- Task 2: Background resume tests ---
+
+    /// dispatch BackgroundPause while is_playing=true:
+    /// was_playing_before_background must become true, is_playing must become false.
+    #[test]
+    fn test_background_pause_sets_flag() {
+        let data_dir = std::env::temp_dir()
+            .join(format!("rmp_test_bgpause_{}", std::process::id()))
+            .to_string_lossy()
+            .to_string();
+        std::fs::create_dir_all(&data_dir).unwrap();
+
+        let (core_tx, _core_rx) = flume::unbounded::<crate::updates::CoreMsg>();
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .unwrap();
+
+        let mut actor = ActorState::new(&data_dir);
+        // Load words and start playback manually
+        actor.words = vec!["hello".to_string(), "world".to_string()];
+        actor.state.total_words = 2;
+        actor.state.is_playing = true;
+
+        actor.handle_action(AppAction::BackgroundPause, &runtime, &core_tx);
+
+        assert!(
+            actor.was_playing_before_background,
+            "was_playing_before_background must be true after BackgroundPause"
+        );
+        assert!(
+            !actor.state.is_playing,
+            "is_playing must be false after BackgroundPause"
+        );
+    }
+
+    /// dispatch Pause (user-initiated) while playing:
+    /// was_playing_before_background must remain false.
+    #[test]
+    fn test_user_pause_does_not_set_flag() {
+        let data_dir = std::env::temp_dir()
+            .join(format!("rmp_test_userpause_{}", std::process::id()))
+            .to_string_lossy()
+            .to_string();
+        std::fs::create_dir_all(&data_dir).unwrap();
+
+        let (core_tx, _core_rx) = flume::unbounded::<crate::updates::CoreMsg>();
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .unwrap();
+
+        let mut actor = ActorState::new(&data_dir);
+        actor.words = vec!["hello".to_string(), "world".to_string()];
+        actor.state.total_words = 2;
+        actor.state.is_playing = true;
+
+        actor.handle_action(AppAction::Pause, &runtime, &core_tx);
+
+        assert!(
+            !actor.was_playing_before_background,
+            "was_playing_before_background must remain false after user Pause"
+        );
+        assert!(
+            !actor.state.is_playing,
+            "is_playing must be false after Pause"
+        );
+    }
+
+    /// dispatch Foregrounded when was_playing_before_background=true and words non-empty:
+    /// is_playing must become true, flag must reset to false.
+    #[test]
+    fn test_foregrounded_resumes_playback() {
+        let data_dir = std::env::temp_dir()
+            .join(format!("rmp_test_fgresume_{}", std::process::id()))
+            .to_string_lossy()
+            .to_string();
+        std::fs::create_dir_all(&data_dir).unwrap();
+
+        let (core_tx, _core_rx) = flume::unbounded::<crate::updates::CoreMsg>();
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .unwrap();
+
+        let mut actor = ActorState::new(&data_dir);
+        actor.words = vec!["hello".to_string(), "world".to_string()];
+        actor.state.total_words = 2;
+        actor.was_playing_before_background = true;
+
+        actor.handle_action(AppAction::Foregrounded, &runtime, &core_tx);
+
+        assert!(
+            actor.state.is_playing,
+            "is_playing must be true after Foregrounded with was_playing_before_background=true"
+        );
+        assert!(
+            !actor.was_playing_before_background,
+            "was_playing_before_background must be reset to false after Foregrounded"
+        );
+    }
+
+    /// dispatch Foregrounded when was_playing_before_background=true but words is empty:
+    /// is_playing must remain false, flag must reset to false.
+    #[test]
+    fn test_foregrounded_no_words_stays_stopped() {
+        let data_dir = std::env::temp_dir()
+            .join(format!("rmp_test_fgnowords_{}", std::process::id()))
+            .to_string_lossy()
+            .to_string();
+        std::fs::create_dir_all(&data_dir).unwrap();
+
+        let (core_tx, _core_rx) = flume::unbounded::<crate::updates::CoreMsg>();
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .unwrap();
+
+        let mut actor = ActorState::new(&data_dir);
+        // words is empty (default)
+        actor.was_playing_before_background = true;
+
+        actor.handle_action(AppAction::Foregrounded, &runtime, &core_tx);
+
+        assert!(
+            !actor.state.is_playing,
+            "is_playing must remain false when Foregrounded with empty word list"
+        );
+        assert!(
+            !actor.was_playing_before_background,
+            "was_playing_before_background must be reset to false"
         );
     }
 

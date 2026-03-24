@@ -24,4 +24,8 @@ pub enum AppAction {
     ClearError,
     // Lifecycle
     Foregrounded,
+    /// Lifecycle-triggered pause when the app enters the background.
+    /// Distinct from user-initiated Pause — sets was_playing_before_background
+    /// so Foregrounded can resume playback automatically.
+    BackgroundPause,
 }
