@@ -13,7 +13,7 @@ use std::thread;
 
 // Re-export public types so platform crates can use them without sub-module paths
 pub use actions::AppAction;
-pub use state::{AppState, Router, Screen, WordDisplay, WordSegment};
+pub use state::{AppState, HistoryEntry, Router, Screen, WordDisplay, WordSegment};
 pub use updates::AppUpdate;
 
 use core::actor::{ActorState, emit};
@@ -34,6 +34,7 @@ pub struct FfiApp {
     update_rx: flume::Receiver<AppUpdate>,
     listening: std::sync::atomic::AtomicBool,
     shared_state: Arc<RwLock<AppState>>,
+    shared_history: Arc<RwLock<Vec<HistoryEntry>>>,  // updated by actor after history mutations
 }
 
 #[uniffi::export]
@@ -48,8 +49,10 @@ impl FfiApp {
         let (update_tx, update_rx) = flume::unbounded::<AppUpdate>();
         let (core_tx, core_rx) = flume::unbounded::<CoreMsg>();
         let shared_state = Arc::new(RwLock::new(AppState::initial()));
+        let shared_history = Arc::new(RwLock::new(Vec::<HistoryEntry>::new()));
 
         let shared_for_actor = shared_state.clone();
+        let shared_history_for_actor = shared_history.clone();
         let data_dir_clone = data_dir.clone();
         let core_tx_for_actor = core_tx.clone();
 
@@ -61,6 +64,8 @@ impl FfiApp {
                 .expect("tokio runtime");
 
             let mut actor = ActorState::new(&data_dir_clone);
+            // Plan 04 will wire shared_history_for_actor into ActorState
+            let _shared_history = shared_history_for_actor;
 
             // Emit initial state
             emit(&mut actor.state, &shared_for_actor, &update_tx);
@@ -91,6 +96,7 @@ impl FfiApp {
             update_rx,
             listening: std::sync::atomic::AtomicBool::new(false),
             shared_state,
+            shared_history,
         })
     }
 
@@ -122,6 +128,16 @@ impl FfiApp {
     /// Synchronous state snapshot for initial UI hydration.
     pub fn state(&self) -> AppState {
         match self.shared_state.read() {
+            Ok(g) => g.clone(),
+            Err(p) => p.into_inner().clone(),
+        }
+    }
+
+    /// Pull the current reading history list. Native layers call this when
+    /// history_revision increments in the AppState received via reconcile().
+    /// Returns a snapshot — no DB access on this thread.
+    pub fn get_history(&self) -> Vec<HistoryEntry> {
+        match self.shared_history.read() {
             Ok(g) => g.clone(),
             Err(p) => p.into_inner().clone(),
         }

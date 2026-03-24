@@ -35,6 +35,7 @@ class AppManager private constructor(context: Context) : AppReconciler {
             isLoading = false,
             error = null,
             toast = null,
+            historyRevision = 0UL,
         )
     )
         private set
