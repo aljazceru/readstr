@@ -11,7 +11,7 @@ import dev.disobey.speedreadingapp.rust.AppAction
 import dev.disobey.speedreadingapp.ui.components.RsvpDisplay
 
 @Composable
-fun ReadingScreen(manager: AppManager) {
+fun ReadingScreen(manager: AppManager, onToggleTheme: () -> Unit = {}) {
     val state = manager.state
 
     // Local preview states — update from core on state change (same pattern as iOS)
@@ -35,9 +35,17 @@ fun ReadingScreen(manager: AppManager) {
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Back button
-        TextButton(onClick = { manager.dispatch(AppAction.PopScreen) }) {
-            Text("← Back")
+        // Navigation row: back button and theme toggle
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            TextButton(onClick = { manager.dispatch(AppAction.PopScreen) }) {
+                Text("← Back")
+            }
+            TextButton(onClick = onToggleTheme) {
+                Text("🌓")
+            }
         }
 
         // RSVP word display
