@@ -437,12 +437,15 @@ mod tests {
     use super::*;
     use std::sync::{Arc, RwLock};
     use flume::unbounded;
-    use crate::core::session::{open_db, save_session, SessionData};
+    use crate::core::session::open_db;
 
-    // --- Task 1: Resume position tests ---
+    fn make_shared_history() -> Arc<RwLock<Vec<crate::state::HistoryEntry>>> {
+        Arc::new(RwLock::new(vec![]))
+    }
 
-    /// After on_parse_complete with a matching session (word_index=50),
-    /// actor.playback_start_index must equal session.word_index.
+    // --- Task 1: Resume position tests (updated for file_sessions / new API) ---
+
+    /// HIST-02: opening a file with an existing file_sessions entry restores word_index.
     #[test]
     fn test_resume_position_syncs_playback_start_index() {
         let data_dir = std::env::temp_dir()
@@ -451,25 +454,31 @@ mod tests {
             .to_string();
         std::fs::create_dir_all(&data_dir).unwrap();
 
-        // Pre-seed the DB with a session at word_index=50
         let conn = open_db(&data_dir).unwrap();
         let words: Vec<String> = (0..100).map(|i| format!("word{i}")).collect();
-        let text_hash = SessionData::compute_text_hash(&words.join(" "));
-        save_session(&conn, &SessionData {
-            text_hash,
-            word_index: 50,
-            wpm: 300,
-            words_per_group: 1,
-        }).unwrap();
+        let file_hash = "a".repeat(64);
+        // Pre-seed file_sessions at word_index=50
+        conn.execute(
+            "INSERT INTO file_sessions
+             (file_hash, file_name, file_path, word_index, total_words, wpm, words_per_group, opened_at, updated_at)
+             VALUES (?1, 'test.txt', '/tmp/test.txt', 50, 100, 300, 1, 1000, 1000)",
+            rusqlite::params![file_hash],
+        ).unwrap();
         drop(conn);
 
-        let mut actor = ActorState::new(&data_dir);
-        actor.on_parse_complete(words);
+        let mut actor = ActorState::new(&data_dir, make_shared_history());
+        actor.on_parse_complete(
+            words,
+            Some(file_hash),
+            Some("test.txt".to_string()),
+            Some("/tmp/test.txt".to_string()),
+        );
 
         assert_eq!(
             actor.playback_start_index, 50,
-            "playback_start_index must equal session.word_index=50 after session restore"
+            "playback_start_index must equal file_sessions.word_index=50 after silent restore"
         );
+        assert_eq!(actor.state.current_word_index, 50);
     }
 
     /// After on_parse_complete with no prior session, playback_start_index must be 0.
@@ -481,44 +490,32 @@ mod tests {
             .to_string();
         std::fs::create_dir_all(&data_dir).unwrap();
 
-        let mut actor = ActorState::new(&data_dir);
+        let mut actor = ActorState::new(&data_dir, make_shared_history());
         let words: Vec<String> = (0..20).map(|i| format!("w{i}")).collect();
-        actor.on_parse_complete(words);
+        actor.on_parse_complete(words, None, None, None);
 
-        assert_eq!(
-            actor.playback_start_index, 0,
-            "playback_start_index must be 0 when no session exists"
-        );
+        assert_eq!(actor.playback_start_index, 0);
     }
 
-    /// After on_parse_complete with a mismatched text_hash, playback_start_index must be 0.
+    /// When file_hash is new (not in file_sessions), word_index must start at 0.
     #[test]
-    fn test_hash_mismatch_playback_start_index_is_zero() {
+    fn test_unknown_file_hash_starts_at_zero() {
         let data_dir = std::env::temp_dir()
-            .join(format!("rmp_test_hashmismatch_{}", std::process::id()))
+            .join(format!("rmp_test_unknown_{}", std::process::id()))
             .to_string_lossy()
             .to_string();
         std::fs::create_dir_all(&data_dir).unwrap();
 
-        // Save a session with a different text_hash
-        let conn = open_db(&data_dir).unwrap();
-        save_session(&conn, &SessionData {
-            text_hash: "different-hash-999".to_string(),
-            word_index: 75,
-            wpm: 300,
-            words_per_group: 1,
-        }).unwrap();
-        drop(conn);
-
-        let mut actor = ActorState::new(&data_dir);
-        // These words produce a different hash than "different-hash-999"
+        let mut actor = ActorState::new(&data_dir, make_shared_history());
         let words: Vec<String> = (0..30).map(|i| format!("xyz{i}")).collect();
-        actor.on_parse_complete(words);
-
-        assert_eq!(
-            actor.playback_start_index, 0,
-            "playback_start_index must be 0 when text hash does not match stored session"
+        actor.on_parse_complete(
+            words,
+            Some("b".repeat(64)),
+            Some("unknown.txt".to_string()),
+            Some("/tmp/unknown.txt".to_string()),
         );
+        assert_eq!(actor.playback_start_index, 0);
+        assert_eq!(actor.state.current_word_index, 0);
     }
 
     // --- Task 2: Background resume tests ---
@@ -540,7 +537,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let mut actor = ActorState::new(&data_dir);
+        let mut actor = ActorState::new(&data_dir, make_shared_history());
         // Load words and start playback manually
         actor.words = vec!["hello".to_string(), "world".to_string()];
         actor.state.total_words = 2;
@@ -575,7 +572,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let mut actor = ActorState::new(&data_dir);
+        let mut actor = ActorState::new(&data_dir, make_shared_history());
         actor.words = vec!["hello".to_string(), "world".to_string()];
         actor.state.total_words = 2;
         actor.state.is_playing = true;
@@ -609,7 +606,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let mut actor = ActorState::new(&data_dir);
+        let mut actor = ActorState::new(&data_dir, make_shared_history());
         actor.words = vec!["hello".to_string(), "world".to_string()];
         actor.state.total_words = 2;
         actor.was_playing_before_background = true;
@@ -643,7 +640,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let mut actor = ActorState::new(&data_dir);
+        let mut actor = ActorState::new(&data_dir, make_shared_history());
         // words is empty (default)
         actor.was_playing_before_background = true;
 
@@ -662,36 +659,25 @@ mod tests {
     // --- Regression tests for words-per-group end-of-doc stuck bug ---
 
     /// compute_word_index must clamp to a value that the end-of-doc condition can reach.
-    /// For wpg=2, total_words=5: last group starts at index 3 (words 3+4).
-    /// The end-of-doc check must fire when new_index == 3, not require index 4 (which
-    /// compute_word_index never returns when wpg=2).
     #[test]
     fn test_compute_word_index_max_does_not_exceed_last_group_start() {
-        // Simulate a long elapsed time — index should saturate at total_words - wpg.
         let very_long = Duration::from_secs(3600);
 
-        // odd total_words, wpg=2
         let idx = compute_word_index(very_long, 300, 2, 5);
         assert_eq!(idx, 3, "last group start for wpg=2 total=5 should be 3, got {idx}");
 
-        // even total_words, wpg=2
         let idx = compute_word_index(very_long, 300, 2, 6);
         assert_eq!(idx, 4, "last group start for wpg=2 total=6 should be 4, got {idx}");
 
-        // wpg=3, total=7: last full group starts at index 4 (covers words 4,5,6)
         let idx = compute_word_index(very_long, 300, 3, 7);
         assert_eq!(idx, 4, "last group start for wpg=3 total=7 should be 4, got {idx}");
 
-        // wpg=1 still works
         let idx = compute_word_index(very_long, 300, 1, 5);
         assert_eq!(idx, 4, "last group start for wpg=1 total=5 should be 4, got {idx}");
     }
 
     /// The end-of-doc condition in WordAdvance must fire when new_index reaches the
-    /// last group start (total_words - wpg), not just when it reaches total_words - 1.
-    ///
-    /// This test drives an ActorState through the WordAdvance handler and confirms
-    /// is_playing becomes false after playback reaches the last group.
+    /// last group start (total_words - wpg).
     #[test]
     fn test_word_advance_stops_at_end_of_doc_with_words_per_group_2() {
         use crate::actions::AppAction;
@@ -711,7 +697,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let mut actor = ActorState::new(&data_dir);
+        let mut actor = ActorState::new(&data_dir, make_shared_history());
 
         // Load 5 words (odd count)
         actor.handle_action(
@@ -731,12 +717,9 @@ mod tests {
             &core_tx,
         );
 
-        // Manually set playback state as if we're at the last group start (index 3).
-        // This simulates the actor receiving a WordAdvance tick after playing up to that point.
         actor.state.is_playing = true;
         actor.state.total_words = 5;
         actor.playback_start_index = 0;
-        // Set playback_start to a time far enough in the past that compute_word_index saturates.
         actor.playback_start = Some(Instant::now() - Duration::from_secs(3600));
 
         actor.handle_internal(
@@ -769,7 +752,6 @@ mod tests {
         emit(&mut state, &shared, &update_tx);
         assert_eq!(state.rev, 2, "rev must be 2 after second emit");
 
-        // Verify updates were sent
         let first = update_rx.try_recv().expect("first update missing");
         let second = update_rx.try_recv().expect("second update missing");
         match first {
@@ -780,5 +762,147 @@ mod tests {
             crate::updates::AppUpdate::FullState(s) => assert_eq!(s.rev, 2),
             _ => panic!("expected FullState"),
         }
+    }
+
+    // --- Task 2 integration tests: HIST-01, HIST-02, HIST-03, STATE blocker ---
+
+    /// HIST-01: opening a new file creates a file_sessions row.
+    #[test]
+    fn test_file_open_creates_history_entry() {
+        let data_dir = std::env::temp_dir()
+            .join(format!("rmp_test_create_{}", std::process::id()))
+            .to_string_lossy()
+            .to_string();
+        std::fs::create_dir_all(&data_dir).unwrap();
+        let mut actor = ActorState::new(&data_dir, make_shared_history());
+        let words: Vec<String> = (0..50).map(|i| format!("w{i}")).collect();
+        let hash = "c".repeat(64);
+        actor.on_parse_complete(
+            words,
+            Some(hash.clone()),
+            Some("book.epub".to_string()),
+            Some("/tmp/book.epub".to_string()),
+        );
+        if let Some(ref conn) = actor.db {
+            let found = crate::core::history::lookup_file_session(conn, &hash)
+                .expect("lookup")
+                .expect("must be Some");
+            assert_eq!(found.file_name, "book.epub");
+        } else {
+            panic!("actor.db must be Some");
+        }
+    }
+
+    /// HIST-03: LoadText (paste) must not create file_sessions rows.
+    #[test]
+    fn test_paste_does_not_create_history_entry() {
+        let data_dir = std::env::temp_dir()
+            .join(format!("rmp_test_paste_{}", std::process::id()))
+            .to_string_lossy()
+            .to_string();
+        std::fs::create_dir_all(&data_dir).unwrap();
+        let mut actor = ActorState::new(&data_dir, make_shared_history());
+        let words: Vec<String> = vec!["hello".to_string(), "world".to_string()];
+        actor.on_parse_complete(words, None, None, None);
+        assert!(actor.current_file_hash.is_none(), "paste must not set current_file_hash");
+        if let Some(ref conn) = actor.db {
+            let history = crate::core::history::load_history(conn).expect("load");
+            assert!(history.is_empty(), "paste must not create any file_sessions rows");
+        }
+    }
+
+    /// STATE blocker: delete active session → next Pause must NOT re-insert.
+    #[test]
+    fn test_delete_active_session_prevents_reinsert() {
+        let data_dir = std::env::temp_dir()
+            .join(format!("rmp_test_del_active_{}", std::process::id()))
+            .to_string_lossy()
+            .to_string();
+        std::fs::create_dir_all(&data_dir).unwrap();
+
+        let (core_tx, _core_rx) = flume::unbounded::<crate::updates::CoreMsg>();
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .unwrap();
+
+        let mut actor = ActorState::new(&data_dir, make_shared_history());
+        let words: Vec<String> = (0..100).map(|i| format!("w{i}")).collect();
+        let hash = "d".repeat(64);
+
+        // Open file — creates file_sessions row
+        actor.on_parse_complete(
+            words.clone(),
+            Some(hash.clone()),
+            Some("test.txt".to_string()),
+            Some("/tmp/test.txt".to_string()),
+        );
+        actor.words = words;
+        actor.state.total_words = 100;
+
+        // Delete the active session
+        actor.handle_action(AppAction::DeleteSession { file_hash: hash.clone() }, &runtime, &core_tx);
+
+        // current_file_hash must be None
+        assert!(actor.current_file_hash.is_none(), "current_file_hash must be None after deleting active session");
+
+        // Pause — must not re-insert
+        actor.handle_action(AppAction::Pause, &runtime, &core_tx);
+
+        // Verify row is still gone
+        if let Some(ref conn) = actor.db {
+            let found = crate::core::history::lookup_file_session(conn, &hash).expect("lookup");
+            assert!(found.is_none(), "deleted row must not be re-inserted after Pause");
+        }
+    }
+
+    /// Deleting a different file's session must not clear current_file_hash.
+    #[test]
+    fn test_delete_inactive_session_does_not_clear_hash() {
+        let data_dir = std::env::temp_dir()
+            .join(format!("rmp_test_del_inactive_{}", std::process::id()))
+            .to_string_lossy()
+            .to_string();
+        std::fs::create_dir_all(&data_dir).unwrap();
+
+        let (core_tx, _core_rx) = flume::unbounded::<crate::updates::CoreMsg>();
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_all()
+            .build()
+            .unwrap();
+
+        let mut actor = ActorState::new(&data_dir, make_shared_history());
+        let hash_a = "e".repeat(64);
+        let hash_b = "f".repeat(64);
+
+        // Open file A
+        actor.on_parse_complete(
+            vec!["one".to_string()],
+            Some(hash_a.clone()),
+            Some("a.txt".to_string()),
+            Some("/tmp/a.txt".to_string()),
+        );
+
+        // Manually insert a row for file B so it can be deleted
+        if let Some(ref conn) = actor.db {
+            conn.execute(
+                "INSERT INTO file_sessions
+                 (file_hash, file_name, file_path, word_index, total_words, wpm, words_per_group, opened_at, updated_at)
+                 VALUES (?1, 'b.txt', '/tmp/b.txt', 0, 10, 300, 1, 1000, 1000)",
+                rusqlite::params![hash_b],
+            ).unwrap();
+        }
+
+        // Delete file B
+        actor.handle_action(AppAction::DeleteSession { file_hash: hash_b }, &runtime, &core_tx);
+
+        // current_file_hash must still be Some(hash_a)
+        assert_eq!(
+            actor.current_file_hash.as_deref(),
+            Some(hash_a.as_str()),
+            "deleting a different session must not affect current_file_hash"
+        );
     }
 }
