@@ -1,4 +1,4 @@
-use iced::widget::{column, container, text, text_editor};
+use iced::widget::{button, column, container, text, text_editor};
 use iced::{Element, Fill, Subscription, Task};
 use std::sync::Arc;
 use speedreading_app_core::{AppAction, AppState, AppUpdate, FfiApp, Screen};
@@ -75,6 +75,47 @@ fn manager_update_stream(manager: &AppManager) -> impl iced::futures::Stream<Ite
     })
 }
 
+// ── Theme helpers ────────────────────────────────────────────────────────────
+
+fn theme_file_path() -> std::path::PathBuf {
+    dirs_next::data_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("speedreading")
+        .join("theme")
+}
+
+fn load_theme_from_disk() -> bool {
+    std::fs::read_to_string(theme_file_path())
+        .ok()
+        .map(|s| s.trim() == "dark")
+        .unwrap_or(false)
+}
+
+fn save_theme_to_disk(dark: bool) {
+    let path = theme_file_path();
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let _ = std::fs::write(path, if dark { "dark" } else { "light" });
+}
+
+// ── File dialog ──────────────────────────────────────────────────────────────
+
+fn open_file_task() -> Task<Message> {
+    Task::future(
+        rfd::AsyncFileDialog::new()
+            .add_filter("Supported Files", &["txt", "epub", "pdf"])
+            .pick_file(),
+    )
+    .then(|handle| match handle {
+        Some(file_handle) => {
+            let path = file_handle.path().to_string_lossy().to_string();
+            Task::done(Message::FileChosen(path))
+        }
+        None => Task::done(Message::FileCancelled),
+    })
+}
+
 // ── App ─────────────────────────────────────────────────────────────────────
 
 enum App {
@@ -126,7 +167,7 @@ impl App {
                     paste_content: text_editor::Content::new(),
                     wpm_preview: wpm,
                     group_preview: wpg,
-                    dark_mode: false,
+                    dark_mode: load_theme_from_disk(),
                 }
             }
             Err(error) => Self::BootError { error },
@@ -146,38 +187,78 @@ impl App {
 
     fn update(&mut self, message: Message) -> Task<Message> {
         match self {
-            App::BootError { .. } => {}
-            App::Loaded { manager, state, paste_content, wpm_preview, group_preview, dark_mode } => {
-                match message {
-                    Message::CoreUpdated => {
-                        let latest = manager.state();
-                        if latest.rev > state.rev {
-                            *state = latest;
-                        }
+            App::BootError { .. } => Task::none(),
+            App::Loaded {
+                manager,
+                state,
+                paste_content,
+                wpm_preview,
+                group_preview,
+                dark_mode,
+            } => match message {
+                Message::CoreUpdated => {
+                    let latest = manager.state();
+                    if latest.rev > state.rev {
+                        *wpm_preview = latest.wpm;
+                        *group_preview = latest.words_per_group;
+                        *state = latest;
                     }
-                    Message::GoBack => {}
-                    Message::OpenFile => {}
-                    Message::FileChosen(_) | Message::FileCancelled => {}
-                    Message::PasteAction(action) => {
-                        paste_content.perform(action);
-                    }
-                    Message::LoadPastedText => {}
-                    Message::WpmDragged(v) => {
-                        *wpm_preview = v;
-                    }
-                    Message::WpmCommitted => {}
-                    Message::GroupDragged(v) => {
-                        *group_preview = v;
-                    }
-                    Message::GroupCommitted => {}
-                    Message::ToggleTheme => {
-                        *dark_mode = !*dark_mode;
-                    }
-                    Message::Dispatch(_) => {}
+                    Task::none()
                 }
-            }
+                Message::GoBack => {
+                    manager.dispatch(AppAction::PopScreen);
+                    Task::none()
+                }
+                Message::OpenFile => open_file_task(),
+                Message::FileChosen(path) => {
+                    manager.dispatch(AppAction::PushScreen {
+                        screen: speedreading_app_core::Screen::Reading,
+                    });
+                    manager.dispatch(AppAction::FileSelected { path });
+                    Task::none()
+                }
+                Message::FileCancelled => Task::none(),
+                Message::PasteAction(action) => {
+                    paste_content.perform(action);
+                    Task::none()
+                }
+                Message::LoadPastedText => {
+                    let text_str = paste_content.text();
+                    if !text_str.trim().is_empty() {
+                        manager.dispatch(AppAction::PushScreen {
+                            screen: speedreading_app_core::Screen::Reading,
+                        });
+                        manager.dispatch(AppAction::LoadText { text: text_str });
+                    }
+                    Task::none()
+                }
+                Message::WpmDragged(v) => {
+                    *wpm_preview = v;
+                    Task::none()
+                }
+                Message::WpmCommitted => {
+                    manager.dispatch(AppAction::SetWPM { wpm: *wpm_preview });
+                    Task::none()
+                }
+                Message::GroupDragged(v) => {
+                    *group_preview = v;
+                    Task::none()
+                }
+                Message::GroupCommitted => {
+                    manager.dispatch(AppAction::SetWordsPerGroup { n: *group_preview });
+                    Task::none()
+                }
+                Message::ToggleTheme => {
+                    *dark_mode = !*dark_mode;
+                    save_theme_to_disk(*dark_mode);
+                    Task::none()
+                }
+                Message::Dispatch(action) => {
+                    manager.dispatch(action);
+                    Task::none()
+                }
+            },
         }
-        Task::none()
     }
 
     fn view(&self) -> Element<'_, Message> {
@@ -185,18 +266,36 @@ impl App {
             App::BootError { error } => container(
                 column![
                     text("SpeedReader").size(24),
-                    text(error).color([0.8, 0.2, 0.2]),
+                    text(error).color([0.8_f32, 0.2_f32, 0.2_f32]),
                 ]
                 .spacing(12),
             )
             .center_x(Fill)
             .center_y(Fill)
             .into(),
-            App::Loaded { state, paste_content, wpm_preview, group_preview, .. } => {
-                match state.router.current_screen() {
+
+            App::Loaded {
+                state,
+                paste_content,
+                wpm_preview,
+                group_preview,
+                dark_mode,
+                ..
+            } => {
+                let theme_label = if *dark_mode { "Light" } else { "Dark" };
+                let theme_btn = button(theme_label).on_press(Message::ToggleTheme);
+                let top_bar = container(theme_btn)
+                    .align_x(iced::alignment::Horizontal::Right)
+                    .width(Fill);
+
+                let screen: Element<'_, Message> = match state.router.current_screen() {
                     Screen::Landing => views::landing::view(state, paste_content),
-                    Screen::Reading => views::reading::view(state, *wpm_preview, *group_preview),
-                }
+                    Screen::Reading => {
+                        views::reading::view(state, *wpm_preview, *group_preview)
+                    }
+                };
+
+                column![top_bar, screen].into()
             }
         }
     }
