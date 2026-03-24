@@ -22,6 +22,9 @@ pub enum AppAction {
     // UI
     ClearToast,
     ClearError,
+    // History
+    ResumeFile { file_hash: String },
+    DeleteSession { file_hash: String },
     // Lifecycle
     Foregrounded,
     /// Lifecycle-triggered pause when the app enters the background.

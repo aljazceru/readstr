@@ -213,6 +213,10 @@ impl ActorState {
                     self.was_playing_before_background = false;
                 }
             }
+
+            // Stub arms — wired in Plan 04 (history actor integration)
+            AppAction::ResumeFile { file_hash: _ } => {}
+            AppAction::DeleteSession { file_hash: _ } => {}
         }
     }
 

@@ -1,6 +1,20 @@
 //! AppState and all related types that cross the FFI boundary.
 //! All public structs/enums are annotated with #[derive(uniffi::Record)] or #[derive(uniffi::Enum)].
 
+/// Per-file reading history entry — returned by FfiApp::get_history().
+/// NOT embedded in AppState — served via pull method (D-12).
+#[derive(uniffi::Record, Clone, Debug)]
+pub struct HistoryEntry {
+    pub file_hash: String,
+    pub file_name: String,
+    pub file_path: String,
+    pub word_index: u64,
+    pub total_words: u64,
+    pub progress_percent: f32,  // pre-computed: word_index/total_words*100.0
+    pub wpm: u32,
+    pub words_per_group: u32,
+}
+
 #[derive(uniffi::Record, Clone, Debug)]
 pub struct AppState {
     pub rev: u64,
@@ -15,6 +29,7 @@ pub struct AppState {
     pub is_loading: bool,
     pub error: Option<String>,
     pub toast: Option<String>,
+    pub history_revision: u64,  // incremented on any history change; native layers re-call get_history() when this changes
 }
 
 impl AppState {
@@ -35,6 +50,7 @@ impl AppState {
             is_loading: false,
             error: None,
             toast: None,
+            history_revision: 0,
         }
     }
 }
