@@ -12,8 +12,14 @@ import androidx.datastore.preferences.preferencesDataStore
 import dev.disobey.speedreadingapp.rust.AppAction
 import dev.disobey.speedreadingapp.ui.MainApp
 import dev.disobey.speedreadingapp.ui.theme.AppTheme
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 private val android.content.Context.dataStore: DataStore<Preferences>
     by preferencesDataStore(name = "settings")
@@ -27,30 +33,41 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         manager = AppManager.getInstance(applicationContext)
 
+        val initialDarkMode = runBlocking {
+            applicationContext.dataStore.data
+                .map { prefs -> prefs[DARK_MODE_KEY] ?: false }
+                .first()
+        }
+
         setContent {
             val scope = rememberCoroutineScope()
             val darkMode by applicationContext.dataStore.data
                 .map { prefs -> prefs[DARK_MODE_KEY] ?: false }
-                .collectAsState(initial = false)
+                .collectAsState(initial = initialDarkMode)
 
             AppTheme(darkTheme = darkMode) {
-                MainApp(
-                    manager = manager,
-                    onToggleTheme = {
-                        scope.launch {
-                            applicationContext.dataStore.edit { prefs ->
-                                prefs[DARK_MODE_KEY] = !(prefs[DARK_MODE_KEY] ?: false)
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    MainApp(
+                        manager = manager,
+                        onToggleTheme = {
+                            scope.launch {
+                                applicationContext.dataStore.edit { prefs ->
+                                    prefs[DARK_MODE_KEY] = !(prefs[DARK_MODE_KEY] ?: false)
+                                }
                             }
                         }
-                    }
-                )
+                    )
+                }
             }
         }
     }
 
     override fun onPause() {
         super.onPause()
-        manager.dispatch(AppAction.Pause)
+        manager.dispatch(AppAction.BackgroundPause)
     }
 
     override fun onResume() {

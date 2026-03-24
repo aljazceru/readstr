@@ -1777,6 +1777,14 @@ sealed class AppAction {
     object Foregrounded : AppAction()
     
     
+    /**
+     * Lifecycle-triggered pause when the app enters the background.
+     * Distinct from user-initiated Pause — sets was_playing_before_background
+     * so Foregrounded can resume playback automatically.
+     */
+    object BackgroundPause : AppAction()
+    
+    
 
     
 
@@ -1819,6 +1827,7 @@ public object FfiConverterTypeAppAction : FfiConverterRustBuffer<AppAction>{
             12 -> AppAction.ClearToast
             13 -> AppAction.ClearError
             14 -> AppAction.Foregrounded
+            15 -> AppAction.BackgroundPause
             else -> throw RuntimeException("invalid enum value, something is very wrong!!")
         }
     }
@@ -1914,6 +1923,12 @@ public object FfiConverterTypeAppAction : FfiConverterRustBuffer<AppAction>{
                 4UL
             )
         }
+        is AppAction.BackgroundPause -> {
+            // Add the size for the Int that specifies the variant plus the size needed for all fields
+            (
+                4UL
+            )
+        }
     }
 
     override fun write(value: AppAction, buf: ByteBuffer) {
@@ -1978,6 +1993,10 @@ public object FfiConverterTypeAppAction : FfiConverterRustBuffer<AppAction>{
             }
             is AppAction.Foregrounded -> {
                 buf.putInt(14)
+                Unit
+            }
+            is AppAction.BackgroundPause -> {
+                buf.putInt(15)
                 Unit
             }
         }.let { /* this makes the `when` an expression, which ensures it is exhaustive */ }
