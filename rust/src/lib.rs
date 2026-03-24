@@ -6,34 +6,13 @@ use flume::{Receiver, Sender};
 
 uniffi::setup_scaffolding!();
 
-// ── State ───────────────────────────────────────────────────────────────────
+pub mod state;
+pub mod actions;
+pub mod updates;
 
-#[derive(uniffi::Record, Clone, Debug)]
-pub struct AppState {
-    pub rev: u64,
-    pub greeting: String,
-}
-
-impl AppState {
-    fn empty() -> Self {
-        Self {
-            rev: 0,
-            greeting: "Hello from Rust!".to_string(),
-        }
-    }
-}
-
-// ── Actions & Updates ───────────────────────────────────────────────────────
-
-#[derive(uniffi::Enum, Clone, Debug)]
-pub enum AppAction {
-    SetName { name: String },
-}
-
-#[derive(uniffi::Enum, Clone, Debug)]
-pub enum AppUpdate {
-    FullState(AppState),
-}
+use actions::AppAction;
+use state::AppState;
+use updates::AppUpdate;
 
 // ── Callback interface ──────────────────────────────────────────────────────
 
@@ -42,7 +21,7 @@ pub trait AppReconciler: Send + Sync + 'static {
     fn reconcile(&self, update: AppUpdate);
 }
 
-// ── FFI entry point ─────────────────────────────────────────────────────────
+// ── FFI entry point (scaffold stub — will be replaced in Plan 05) ────────────
 
 enum CoreMsg {
     Action(AppAction),
@@ -64,12 +43,11 @@ impl FfiApp {
 
         let (update_tx, update_rx) = flume::unbounded();
         let (core_tx, core_rx) = flume::unbounded::<CoreMsg>();
-        let shared_state = Arc::new(RwLock::new(AppState::empty()));
+        let shared_state = Arc::new(RwLock::new(AppState::initial()));
 
         let shared_for_core = shared_state.clone();
         thread::spawn(move || {
-            let mut state = AppState::empty();
-            let mut rev: u64 = 0;
+            let state = AppState::initial();
 
             // Emit initial state.
             {
@@ -83,23 +61,9 @@ impl FfiApp {
 
             while let Ok(msg) = core_rx.recv() {
                 match msg {
-                    CoreMsg::Action(action) => match action {
-                        AppAction::SetName { name } => {
-                            rev += 1;
-                            state.rev = rev;
-                            if name.trim().is_empty() {
-                                state.greeting = "Hello from Rust!".to_string();
-                            } else {
-                                state.greeting = format!("Hello, {}!", name.trim());
-                            }
-                            let snapshot = state.clone();
-                            match shared_for_core.write() {
-                                Ok(mut g) => *g = snapshot.clone(),
-                                Err(p) => *p.into_inner() = snapshot.clone(),
-                            }
-                            let _ = update_tx.send(AppUpdate::FullState(snapshot));
-                        }
-                    },
+                    CoreMsg::Action(_action) => {
+                        // Stub: full update logic implemented in Plan 05 (core actor)
+                    }
                 }
             }
         });
