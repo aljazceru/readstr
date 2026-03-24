@@ -1,0 +1,19 @@
+[project]
+name = "speedreading-app"
+org = "dev.disobey"
+
+[core]
+crate = "speedreading-app_core"
+bindings = "uniffi"
+
+[ios]
+bundle_id = "dev.disobey.speedreading"
+
+[android]
+app_id = "dev.disobey.speedreadingapp"
+
+[desktop]
+targets = ["iced"]
+
+[desktop.iced]
+package = "speedreading-app_core_desktop_iced"
