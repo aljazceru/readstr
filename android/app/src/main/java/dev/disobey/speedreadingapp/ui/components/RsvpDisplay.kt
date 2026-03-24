@@ -25,6 +25,13 @@ fun RsvpDisplay(display: WordDisplay?, isLoading: Boolean) {
     ) {
         when {
             display != null -> {
+                val fullText = display.words.joinToString(" ") { it.before + it.anchor + it.after }
+                val fontSize = when {
+                    fullText.length <= 8  -> 48.sp
+                    fullText.length <= 14 -> 38.sp
+                    fullText.length <= 20 -> 30.sp
+                    else                  -> 24.sp
+                }
                 val text = buildAnnotatedString {
                     display.words.forEachIndexed { i, seg ->
                         append(seg.before)
@@ -42,7 +49,7 @@ fun RsvpDisplay(display: WordDisplay?, isLoading: Boolean) {
                 }
                 Text(
                     text = text,
-                    fontSize = 48.sp,
+                    fontSize = fontSize,
                     textAlign = TextAlign.Center
                 )
             }

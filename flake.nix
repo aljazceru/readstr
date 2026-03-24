@@ -76,6 +76,7 @@
           packages = [
             rustToolchain
             androidSdk
+            pkgs.jdk17
             pkgs.just
             pkgs.nodejs_22
             pkgs.python3
@@ -89,6 +90,7 @@
 
           shellHook = ''
             export IN_NIX_SHELL=1
+            export JAVA_HOME=${pkgs.jdk17}
             export ANDROID_HOME=${androidSdk}/share/android-sdk
             export ANDROID_SDK_ROOT=${androidSdk}/share/android-sdk
             export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"

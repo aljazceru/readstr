@@ -106,3 +106,80 @@ fn test_actor_end_of_document_stop() {
         "progress_percent must be 100.0 at end-of-document"
     );
 }
+
+/// Regression test for: "pressing Play shows first word then immediately jumps to last word"
+///
+/// Root cause: WordAdvance (mid-document) sends PlaybackTick but does NOT update
+/// shared_state. The desktop reads shared_state on every notification, so it always
+/// sees stale data (index 0 from the Play press emit) until the end-of-document
+/// emit fires.
+///
+/// This test proves: after a mid-document WordAdvance, shared_state.current_word_index
+/// MUST equal the advanced index (not stale 0). If shared_state is NOT updated,
+/// the test fails — demonstrating the bug before the fix.
+#[test]
+fn test_word_advance_tick_updates_shared_state() {
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+        .unwrap();
+
+    let (core_tx, _core_rx) = unbounded::<CoreMsg>();
+    let (update_tx, update_rx) = unbounded::<AppUpdate>();
+    let shared_state = Arc::new(RwLock::new(speedreading_app_core::state::AppState::initial()));
+
+    // 10-word document, playing from the start
+    let words: Vec<String> = (1u32..=10).map(|i| format!("word{i}")).collect();
+    let mut actor = ActorState::new("");
+    actor.words = words;
+    actor.state.total_words = 10;
+    actor.state.wpm = 300;
+    actor.state.words_per_group = 1;
+    actor.state.is_playing = true;
+    actor.state.current_word_index = 0;
+    actor.playback_start_index = 0;
+    // Simulate playback started 300ms ago → compute_word_index returns 1 (word #2)
+    actor.playback_start = Some(
+        std::time::Instant::now()
+            .checked_sub(Duration::from_millis(300))
+            .expect("instant subtraction"),
+    );
+
+    // Flush any initial shared_state updates first
+    let initial_rev = shared_state.read().unwrap().rev;
+
+    actor.handle_internal(
+        InternalEvent::WordAdvance,
+        &runtime,
+        &core_tx,
+        &update_tx,
+        &shared_state,
+    );
+
+    // The update channel must have received a PlaybackTick (not FullState) for a mid-doc tick
+    let update = update_rx.try_recv().expect("WordAdvance must send an update");
+    match &update {
+        AppUpdate::PlaybackTick { current_word_index, .. } => {
+            assert_eq!(
+                *current_word_index, 1,
+                "PlaybackTick must carry advanced word index"
+            );
+        }
+        AppUpdate::FullState(_) => {
+            panic!("mid-document WordAdvance must send PlaybackTick, not FullState");
+        }
+    }
+
+    // CRITICAL: shared_state must be updated so that the desktop can read the new position.
+    // Without the fix, shared_state.current_word_index is still 0 here — this assertion fails.
+    let snapped = shared_state.read().unwrap();
+    assert_eq!(
+        snapped.current_word_index, 1,
+        "shared_state.current_word_index must be updated on WordAdvance so desktop reads correct position"
+    );
+    assert!(
+        snapped.rev > initial_rev,
+        "shared_state.rev must advance on WordAdvance tick"
+    );
+}
