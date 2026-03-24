@@ -40,6 +40,33 @@ pub fn open_db(data_dir: &str) -> anyhow::Result<rusqlite::Connection> {
         );",
     )
     .context("Failed to create sessions table")?;
+    // Migration v0 → v1: add file_sessions table for per-file reading history.
+    // user_version = 0 means v1.0 schema (sessions table only, no file_sessions).
+    // Safe to run on every startup — guard ensures it only executes once.
+    let user_version: i32 = conn.query_row(
+        "PRAGMA user_version",
+        [],
+        |r| r.get(0),
+    )?;
+    if user_version < 1 {
+        conn.execute_batch(
+            "BEGIN;
+             CREATE TABLE IF NOT EXISTS file_sessions (
+                 file_hash       TEXT    PRIMARY KEY,
+                 file_name       TEXT    NOT NULL,
+                 file_path       TEXT    NOT NULL,
+                 word_index      INTEGER NOT NULL DEFAULT 0,
+                 total_words     INTEGER NOT NULL DEFAULT 0,
+                 wpm             INTEGER NOT NULL DEFAULT 300,
+                 words_per_group INTEGER NOT NULL DEFAULT 1,
+                 opened_at       INTEGER NOT NULL DEFAULT 0,
+                 updated_at      INTEGER NOT NULL DEFAULT 0
+             );
+             PRAGMA user_version = 1;
+             COMMIT;",
+        )
+        .context("Failed to migrate schema to v1")?;
+    }
     Ok(conn)
 }
 
@@ -161,5 +188,69 @@ mod tests {
         let h1 = hash_file_bytes(b"text one");
         let h2 = hash_file_bytes(b"text two");
         assert_ne!(h1, h2, "Different inputs must produce different SHA-256 hashes");
+    }
+
+    #[test]
+    fn test_open_db_creates_file_sessions_table() {
+        let data_dir = std::env::temp_dir()
+            .join(format!("rmp_test_migration_{}", std::process::id()))
+            .to_string_lossy()
+            .to_string();
+        std::fs::create_dir_all(&data_dir).unwrap();
+        let conn = open_db(&data_dir).expect("open_db");
+        // file_sessions table must exist after open_db
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='file_sessions'",
+            [],
+            |r| r.get(0),
+        ).expect("query");
+        assert_eq!(count, 1, "file_sessions table must exist after open_db");
+    }
+
+    #[test]
+    fn test_open_db_migration_sets_user_version_1() {
+        let data_dir = std::env::temp_dir()
+            .join(format!("rmp_test_uv_{}", std::process::id()))
+            .to_string_lossy()
+            .to_string();
+        std::fs::create_dir_all(&data_dir).unwrap();
+        let conn = open_db(&data_dir).expect("open_db");
+        let uv: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).expect("pragma");
+        assert_eq!(uv, 1, "user_version must be 1 after migration");
+    }
+
+    #[test]
+    fn test_open_db_migration_idempotent() {
+        // Simulate v1.0 device: create DB with only the sessions table (user_version=0)
+        let data_dir = std::env::temp_dir()
+            .join(format!("rmp_test_idem_{}", std::process::id()))
+            .to_string_lossy()
+            .to_string();
+        std::fs::create_dir_all(&data_dir).unwrap();
+        let db_path = std::path::Path::new(&data_dir).join("speedreading.db");
+        {
+            let conn = rusqlite::Connection::open(&db_path).expect("create v1.0 db");
+            conn.execute_batch(
+                "CREATE TABLE sessions (
+                    id INTEGER PRIMARY KEY,
+                    text_hash TEXT NOT NULL DEFAULT '',
+                    word_index INTEGER NOT NULL DEFAULT 0,
+                    wpm INTEGER NOT NULL DEFAULT 300,
+                    words_per_group INTEGER NOT NULL DEFAULT 1,
+                    updated_at INTEGER NOT NULL DEFAULT 0
+                );"
+            ).expect("v1.0 schema");
+            // user_version stays 0 (default)
+        }
+        // Now open_db should run the migration exactly once
+        let conn = open_db(&data_dir).expect("open_db on v1.0 db");
+        let uv: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).expect("pragma");
+        assert_eq!(uv, 1, "migration must run on v1.0 db");
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='file_sessions'",
+            [],
+            |r| r.get(0),
+        ).expect("query");
+        assert_eq!(count, 1, "file_sessions must exist after migrating v1.0 db");
     }
 }
