@@ -1,12 +1,19 @@
 import Foundation
 import Observation
 
+struct HistoryEntryUi {
+    let entry: HistoryEntry
+    let isMissing: Bool
+}
+
 @MainActor
 @Observable
 final class AppManager: AppReconciler {
     let rust: FfiApp
     var state: AppState
     private var lastRevApplied: UInt64
+    private var lastHistoryRevision: UInt64 = 0
+    var history: [HistoryEntryUi] = []   // @Observable — auto-publishes to views
 
     init() {
         let fm = FileManager.default
@@ -36,6 +43,13 @@ final class AppManager: AppReconciler {
             if s.rev <= lastRevApplied { return }
             lastRevApplied = s.rev
             state = s
+            if s.historyRevision != lastHistoryRevision {
+                lastHistoryRevision = s.historyRevision
+                history = rust.getHistory().map { entry in
+                    let exists = FileManager.default.fileExists(atPath: entry.filePath)
+                    return HistoryEntryUi(entry: entry, isMissing: !exists)
+                }
+            }
         case .playbackTick(_, _, _):
             // PlaybackTick fires at WPM cadence (up to ~17/sec at 1000 WPM).
             // Read full state snapshot — cheapest correct approach for a reading app.
@@ -44,6 +58,13 @@ final class AppManager: AppReconciler {
             if latest.rev >= lastRevApplied {
                 lastRevApplied = latest.rev
                 state = latest
+            }
+            if latest.historyRevision != lastHistoryRevision {
+                lastHistoryRevision = latest.historyRevision
+                history = rust.getHistory().map { entry in
+                    let exists = FileManager.default.fileExists(atPath: entry.filePath)
+                    return HistoryEntryUi(entry: entry, isMissing: !exists)
+                }
             }
         }
     }
