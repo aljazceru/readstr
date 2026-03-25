@@ -1,6 +1,9 @@
 package dev.disobey.speedreadingapp.ui.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -17,44 +20,52 @@ import dev.disobey.speedreadingapp.rust.WordDisplay
 
 @Composable
 fun RsvpDisplay(display: WordDisplay?, isLoading: Boolean) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(120.dp),
-        contentAlignment = Alignment.Center
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
-        when {
-            display != null -> {
-                val fullText = display.words.joinToString(" ") { it.before + it.anchor + it.after }
-                val fontSize = when {
-                    fullText.length <= 8  -> 48.sp
-                    fullText.length <= 14 -> 38.sp
-                    fullText.length <= 20 -> 30.sp
-                    else                  -> 24.sp
-                }
-                val text = buildAnnotatedString {
-                    display.words.forEachIndexed { i, seg ->
-                        append(seg.before)
-                        withStyle(
-                            SpanStyle(
-                                color = Color(0xFFFF6600),
-                                fontWeight = FontWeight.Bold
-                            )
-                        ) {
-                            append(seg.anchor)
-                        }
-                        append(seg.after)
-                        if (i < display.words.size - 1) append(" ")
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .padding(vertical = 24.dp, horizontal = 32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            when {
+                display != null -> {
+                    val fullText = display.words.joinToString(" ") { it.before + it.anchor + it.after }
+                    val fontSize = when {
+                        fullText.length <= 8  -> 48.sp
+                        fullText.length <= 14 -> 38.sp
+                        fullText.length <= 20 -> 30.sp
+                        else                  -> 24.sp
                     }
+                    val text = buildAnnotatedString {
+                        display.words.forEachIndexed { i, seg ->
+                            append(seg.before)
+                            withStyle(
+                                SpanStyle(
+                                    color = Color(0xFFFF6600),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            ) {
+                                append(seg.anchor)
+                            }
+                            append(seg.after)
+                            if (i < display.words.size - 1) append(" ")
+                        }
+                    }
+                    Text(
+                        text = text,
+                        fontSize = fontSize,
+                        textAlign = TextAlign.Center
+                    )
                 }
-                Text(
-                    text = text,
-                    fontSize = fontSize,
-                    textAlign = TextAlign.Center
-                )
+                isLoading -> Text("Loading...", fontSize = 48.sp)
+                else -> Text("—", fontSize = 48.sp)
             }
-            isLoading -> Text("Loading...", fontSize = 48.sp)
-            else -> Text("—", fontSize = 48.sp)
         }
     }
 }

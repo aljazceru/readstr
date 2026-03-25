@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -237,8 +238,11 @@ fun HistoryRow(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
-            // Generic document icon — no system equivalent in Material Icons; use text fallback
-            Text("📄", style = MaterialTheme.typography.bodyMedium)
+            Icon(
+                Icons.Default.Description,
+                contentDescription = "Document",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
 
         // File name + optional sublabel (D-08)
