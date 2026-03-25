@@ -5,6 +5,10 @@ struct LandingView: View {
     @Bindable var manager: AppManager
     @State private var pasteText: String = ""
     @State private var showFilePicker: Bool = false
+    @State private var showDeleteConfirm: Bool = false
+    @State private var pendingDeleteEntry: HistoryEntryUi? = nil
+    @State private var showRelocatePicker: Bool = false
+    @State private var fileNotFoundError: String? = nil
 
     // EPUB has no system UTType constant — construct dynamically (RESEARCH.md Pitfall 4)
     private let epubType = UTType(filenameExtension: "epub") ?? UTType.data
@@ -51,6 +55,9 @@ struct LandingView: View {
 
             // Status area — 14pt, single line (UI-SPEC Screen 1)
             statusView
+
+            // History section — hidden when empty (D-01, D-03)
+            historySection
         }
         .padding(32)  // 32pt screen edge padding (UI-SPEC)
         .frame(maxWidth: 640, alignment: .leading)  // 640pt max width (UI-SPEC)
@@ -62,6 +69,30 @@ struct LandingView: View {
         ) { result in
             handleFilePickerResult(result)
         }
+        .fileImporter(
+            isPresented: $showRelocatePicker,
+            allowedContentTypes: [.plainText, .pdf, epubType],
+            allowsMultipleSelection: false
+        ) { result in
+            if case .success = result {
+                fileNotFoundError = nil
+            }
+            handleFilePickerResult(result)
+        }
+        .alert(
+            pendingDeleteEntry.map { "Delete entry for \($0.entry.fileName)?" } ?? "Delete entry?",
+            isPresented: $showDeleteConfirm
+        ) {
+            Button("Delete", role: .destructive) {
+                if let entry = pendingDeleteEntry {
+                    manager.dispatch(.deleteSession(fileHash: entry.entry.fileHash))
+                }
+                pendingDeleteEntry = nil
+            }
+            Button("Keep Entry", role: .cancel) {
+                pendingDeleteEntry = nil
+            }
+        }
     }
 
     @ViewBuilder
@@ -69,6 +100,10 @@ struct LandingView: View {
         if let error = manager.state.error {
             // Error: {message} at 14pt red (UI-SPEC Copywriting, Color)
             Text("Error: \(error)")
+                .font(.system(size: 14))
+                .foregroundColor(.red)
+        } else if let error = fileNotFoundError {
+            Text(error)
                 .font(.system(size: 14))
                 .foregroundColor(.red)
         } else if manager.state.isLoading {
@@ -81,6 +116,81 @@ struct LandingView: View {
             Text(" ")
                 .font(.system(size: 14))
         }
+    }
+
+    @ViewBuilder
+    private var historySection: some View {
+        if !manager.history.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Recent Files")
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
+
+                // Scrollable list of history entries
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(manager.history, id: \.entry.fileHash) { item in
+                            historyRow(item)
+                            Divider()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func historyRow(_ item: HistoryEntryUi) -> some View {
+        HStack(spacing: 8) {
+            // Icon — warning for missing, document for normal (D-08, D-11)
+            Text(item.isMissing ? "⚠️" : "📄")
+                .accessibilityLabel(item.isMissing ? "File not found" : "Document")
+
+            // File name + optional "File not found" sublabel
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.entry.fileName)
+                    .font(.body)
+                    .foregroundColor(item.isMissing ? .secondary : .primary)
+                if item.isMissing {
+                    Text("File not found")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Progress % — integer, no decimal (UI-SPEC Pitfall 6)
+            Text("\(Int(item.entry.progressPercent))%")
+                .font(.system(size: 14))
+                .accessibilityLabel("\(Int(item.entry.progressPercent)) percent")
+
+            // Resume button (D-12)
+            Button("Resume") {
+                if item.isMissing {
+                    // D-10: show error + open picker immediately; do NOT dispatch ResumeFile
+                    fileNotFoundError = "File not found — please re-locate it"
+                    showRelocatePicker = true
+                } else {
+                    fileNotFoundError = nil
+                    // Do NOT dispatch .pushScreen(.reading) — on_parse_complete pushes it (Pitfall 1)
+                    manager.dispatch(.resumeFile(fileHash: item.entry.fileHash))
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(minHeight: 44)  // accessibility touch target
+
+            // Trash icon (D-06) — shows confirmation alert (D-07)
+            Button {
+                pendingDeleteEntry = item
+                showDeleteConfirm = true
+            } label: {
+                Image(systemName: "trash")
+            }
+            .accessibilityLabel("Delete \(item.entry.fileName) history entry")
+            .foregroundColor(.secondary)
+            .frame(minWidth: 44, minHeight: 44)  // accessibility touch target
+        }
+        .padding(.vertical, 8)
+        .frame(minHeight: 44)
     }
 
     private func handleFilePickerResult(_ result: Result<[URL], Error>) {
