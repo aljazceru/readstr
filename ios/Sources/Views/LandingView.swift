@@ -77,7 +77,7 @@ struct LandingView: View {
             if case .success = result {
                 fileNotFoundError = nil
             }
-            handleFilePickerResult(result)
+            handleFilePickerResult(result, isRelocate: true)
         }
         .alert(
             pendingDeleteEntry.map { "Delete entry for \($0.entry.fileName)?" } ?? "Delete entry?",
@@ -193,12 +193,15 @@ struct LandingView: View {
         .frame(minHeight: 44)
     }
 
-    private func handleFilePickerResult(_ result: Result<[URL], Error>) {
+    private func handleFilePickerResult(_ result: Result<[URL], Error>, isRelocate: Bool = false) {
         guard case .success(let urls) = result, let url = urls.first else { return }
         Task {
             if let sandboxPath = FileSandboxHelper.copyToSandbox(url: url) {
-                // Dispatch sequence: navigate first, then load (Reading screen visible while parsing)
-                manager.dispatch(.pushScreen(screen: .reading))
+                if !isRelocate {
+                    // Normal open: navigate first, then load (Reading screen visible while parsing)
+                    // Re-locate: on_parse_complete in actor.rs pushes Screen::Reading itself (FNF-01)
+                    manager.dispatch(.pushScreen(screen: .reading))
+                }
                 manager.dispatch(.fileSelected(path: sandboxPath))
             }
             // On copy failure: state.error will be set by Rust or remain nil;
