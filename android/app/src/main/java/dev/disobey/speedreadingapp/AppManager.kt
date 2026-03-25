@@ -11,6 +11,7 @@ import dev.disobey.speedreadingapp.rust.AppReconciler
 import dev.disobey.speedreadingapp.rust.AppState
 import dev.disobey.speedreadingapp.rust.AppUpdate
 import dev.disobey.speedreadingapp.rust.FfiApp
+import dev.disobey.speedreadingapp.rust.HistoryEntry
 import dev.disobey.speedreadingapp.rust.Router
 import dev.disobey.speedreadingapp.rust.Screen
 
@@ -18,6 +19,14 @@ class AppManager private constructor(context: Context) : AppReconciler {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val rust: FfiApp
     private var lastRevApplied: ULong = 0UL
+    var history: List<HistoryEntryUi> by mutableStateOf(emptyList())
+        private set
+    private var lastHistoryRevision: ULong = 0UL
+
+    data class HistoryEntryUi(
+        val entry: HistoryEntry,
+        val isMissing: Boolean
+    )
 
     // Placeholder initial state — immediately replaced by rust.state() in init{}.
     // Required because mutableStateOf needs a typed initial value and AppState has no no-arg constructor.
@@ -60,12 +69,24 @@ class AppManager private constructor(context: Context) : AppReconciler {
                     if (update.v1.rev <= lastRevApplied) return@post
                     lastRevApplied = update.v1.rev
                     state = update.v1
+                    if (update.v1.historyRevision != lastHistoryRevision) {
+                        lastHistoryRevision = update.v1.historyRevision
+                        history = rust.getHistory().map { entry ->
+                            HistoryEntryUi(entry, isMissing = !java.io.File(entry.filePath).exists())
+                        }
+                    }
                 }
                 is AppUpdate.PlaybackTick -> {
                     val latest = rust.state()
                     if (latest.rev >= lastRevApplied) {
                         lastRevApplied = latest.rev
                         state = latest
+                    }
+                    if (latest.historyRevision != lastHistoryRevision) {
+                        lastHistoryRevision = latest.historyRevision
+                        history = rust.getHistory().map { entry ->
+                            HistoryEntryUi(entry, isMissing = !java.io.File(entry.filePath).exists())
+                        }
                     }
                 }
             }

@@ -660,6 +660,8 @@ internal object IntegrityCheckingUniffiLib {
     }
     external fun uniffi_speedreading_app_core_checksum_method_ffiapp_dispatch(
     ): Short
+    external fun uniffi_speedreading_app_core_checksum_method_ffiapp_get_history(
+    ): Short
     external fun uniffi_speedreading_app_core_checksum_method_ffiapp_listen_for_updates(
     ): Short
     external fun uniffi_speedreading_app_core_checksum_method_ffiapp_state(
@@ -695,6 +697,8 @@ internal object UniffiLib {
     ): Long
     external fun uniffi_speedreading_app_core_fn_method_ffiapp_dispatch(`ptr`: Long,`action`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    external fun uniffi_speedreading_app_core_fn_method_ffiapp_get_history(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     external fun uniffi_speedreading_app_core_fn_method_ffiapp_listen_for_updates(`ptr`: Long,`reconciler`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     external fun uniffi_speedreading_app_core_fn_method_ffiapp_state(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -821,6 +825,9 @@ private fun uniffiCheckContractApiVersion(lib: IntegrityCheckingUniffiLib) {
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_speedreading_app_core_checksum_method_ffiapp_dispatch() != 15128.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_speedreading_app_core_checksum_method_ffiapp_get_history() != 40811.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_speedreading_app_core_checksum_method_ffiapp_listen_for_updates() != 54077.toShort()) {
@@ -1280,6 +1287,13 @@ public interface FfiAppInterface {
     fun `dispatch`(`action`: AppAction)
     
     /**
+     * Pull the current reading history list. Native layers call this when
+     * history_revision increments in the AppState received via reconcile().
+     * Returns a snapshot — no DB access on this thread.
+     */
+    fun `getHistory`(): List<HistoryEntry>
+    
+    /**
      * Start streaming updates to the reconciler on a background thread.
      * Only one listener allowed (AtomicBool guard).
      */
@@ -1425,6 +1439,24 @@ open class FfiApp: Disposable, AutoCloseable, FfiAppInterface
 
     
     /**
+     * Pull the current reading history list. Native layers call this when
+     * history_revision increments in the AppState received via reconcile().
+     * Returns a snapshot — no DB access on this thread.
+     */override fun `getHistory`(): List<HistoryEntry> {
+            return FfiConverterSequenceTypeHistoryEntry.lift(
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_speedreading_app_core_fn_method_ffiapp_get_history(
+        it,
+        _status)
+}
+    }
+    )
+    }
+    
+
+    
+    /**
      * Start streaming updates to the reconciler on a background thread.
      * Only one listener allowed (AtomicBool guard).
      */override fun `listenForUpdates`(`reconciler`: AppReconciler)
@@ -1519,6 +1551,8 @@ data class AppState (
     var `error`: kotlin.String?
     , 
     var `toast`: kotlin.String?
+    , 
+    var `historyRevision`: kotlin.ULong
     
 ){
     
@@ -1547,6 +1581,7 @@ public object FfiConverterTypeAppState: FfiConverterRustBuffer<AppState> {
             FfiConverterBoolean.read(buf),
             FfiConverterOptionalString.read(buf),
             FfiConverterOptionalString.read(buf),
+            FfiConverterULong.read(buf),
         )
     }
 
@@ -1562,7 +1597,8 @@ public object FfiConverterTypeAppState: FfiConverterRustBuffer<AppState> {
             FfiConverterULong.allocationSize(value.`totalWords`) +
             FfiConverterBoolean.allocationSize(value.`isLoading`) +
             FfiConverterOptionalString.allocationSize(value.`error`) +
-            FfiConverterOptionalString.allocationSize(value.`toast`)
+            FfiConverterOptionalString.allocationSize(value.`toast`) +
+            FfiConverterULong.allocationSize(value.`historyRevision`)
     )
 
     override fun write(value: AppState, buf: ByteBuffer) {
@@ -1578,6 +1614,79 @@ public object FfiConverterTypeAppState: FfiConverterRustBuffer<AppState> {
             FfiConverterBoolean.write(value.`isLoading`, buf)
             FfiConverterOptionalString.write(value.`error`, buf)
             FfiConverterOptionalString.write(value.`toast`, buf)
+            FfiConverterULong.write(value.`historyRevision`, buf)
+    }
+}
+
+
+
+/**
+ * Per-file reading history entry — returned by FfiApp::get_history().
+ * NOT embedded in AppState — served via pull method (D-12).
+ */
+data class HistoryEntry (
+    var `fileHash`: kotlin.String
+    , 
+    var `fileName`: kotlin.String
+    , 
+    var `filePath`: kotlin.String
+    , 
+    var `wordIndex`: kotlin.ULong
+    , 
+    var `totalWords`: kotlin.ULong
+    , 
+    var `progressPercent`: kotlin.Float
+    , 
+    var `wpm`: kotlin.UInt
+    , 
+    var `wordsPerGroup`: kotlin.UInt
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeHistoryEntry: FfiConverterRustBuffer<HistoryEntry> {
+    override fun read(buf: ByteBuffer): HistoryEntry {
+        return HistoryEntry(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterFloat.read(buf),
+            FfiConverterUInt.read(buf),
+            FfiConverterUInt.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: HistoryEntry) = (
+            FfiConverterString.allocationSize(value.`fileHash`) +
+            FfiConverterString.allocationSize(value.`fileName`) +
+            FfiConverterString.allocationSize(value.`filePath`) +
+            FfiConverterULong.allocationSize(value.`wordIndex`) +
+            FfiConverterULong.allocationSize(value.`totalWords`) +
+            FfiConverterFloat.allocationSize(value.`progressPercent`) +
+            FfiConverterUInt.allocationSize(value.`wpm`) +
+            FfiConverterUInt.allocationSize(value.`wordsPerGroup`)
+    )
+
+    override fun write(value: HistoryEntry, buf: ByteBuffer) {
+            FfiConverterString.write(value.`fileHash`, buf)
+            FfiConverterString.write(value.`fileName`, buf)
+            FfiConverterString.write(value.`filePath`, buf)
+            FfiConverterULong.write(value.`wordIndex`, buf)
+            FfiConverterULong.write(value.`totalWords`, buf)
+            FfiConverterFloat.write(value.`progressPercent`, buf)
+            FfiConverterUInt.write(value.`wpm`, buf)
+            FfiConverterUInt.write(value.`wordsPerGroup`, buf)
     }
 }
 
@@ -1774,6 +1883,24 @@ sealed class AppAction {
     object ClearError : AppAction()
     
     
+    data class ResumeFile(
+        val `fileHash`: kotlin.String) : AppAction()
+        
+    {
+        
+
+        companion object
+    }
+    
+    data class DeleteSession(
+        val `fileHash`: kotlin.String) : AppAction()
+        
+    {
+        
+
+        companion object
+    }
+    
     object Foregrounded : AppAction()
     
     
@@ -1826,8 +1953,14 @@ public object FfiConverterTypeAppAction : FfiConverterRustBuffer<AppAction>{
             11 -> AppAction.Replay
             12 -> AppAction.ClearToast
             13 -> AppAction.ClearError
-            14 -> AppAction.Foregrounded
-            15 -> AppAction.BackgroundPause
+            14 -> AppAction.ResumeFile(
+                FfiConverterString.read(buf),
+                )
+            15 -> AppAction.DeleteSession(
+                FfiConverterString.read(buf),
+                )
+            16 -> AppAction.Foregrounded
+            17 -> AppAction.BackgroundPause
             else -> throw RuntimeException("invalid enum value, something is very wrong!!")
         }
     }
@@ -1917,6 +2050,20 @@ public object FfiConverterTypeAppAction : FfiConverterRustBuffer<AppAction>{
                 4UL
             )
         }
+        is AppAction.ResumeFile -> {
+            // Add the size for the Int that specifies the variant plus the size needed for all fields
+            (
+                4UL
+                + FfiConverterString.allocationSize(value.`fileHash`)
+            )
+        }
+        is AppAction.DeleteSession -> {
+            // Add the size for the Int that specifies the variant plus the size needed for all fields
+            (
+                4UL
+                + FfiConverterString.allocationSize(value.`fileHash`)
+            )
+        }
         is AppAction.Foregrounded -> {
             // Add the size for the Int that specifies the variant plus the size needed for all fields
             (
@@ -1991,12 +2138,22 @@ public object FfiConverterTypeAppAction : FfiConverterRustBuffer<AppAction>{
                 buf.putInt(13)
                 Unit
             }
-            is AppAction.Foregrounded -> {
+            is AppAction.ResumeFile -> {
                 buf.putInt(14)
+                FfiConverterString.write(value.`fileHash`, buf)
+                Unit
+            }
+            is AppAction.DeleteSession -> {
+                buf.putInt(15)
+                FfiConverterString.write(value.`fileHash`, buf)
+                Unit
+            }
+            is AppAction.Foregrounded -> {
+                buf.putInt(16)
                 Unit
             }
             is AppAction.BackgroundPause -> {
-                buf.putInt(15)
+                buf.putInt(17)
                 Unit
             }
         }.let { /* this makes the `when` an expression, which ensures it is exhaustive */ }
@@ -2259,6 +2416,34 @@ public object FfiConverterOptionalTypeWordDisplay: FfiConverterRustBuffer<WordDi
         } else {
             buf.put(1)
             FfiConverterTypeWordDisplay.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeHistoryEntry: FfiConverterRustBuffer<List<HistoryEntry>> {
+    override fun read(buf: ByteBuffer): List<HistoryEntry> {
+        val len = buf.getInt()
+        return List<HistoryEntry>(len) {
+            FfiConverterTypeHistoryEntry.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<HistoryEntry>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeHistoryEntry.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<HistoryEntry>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeHistoryEntry.write(it, buf)
         }
     }
 }
