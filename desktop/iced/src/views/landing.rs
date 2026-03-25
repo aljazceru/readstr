@@ -1,14 +1,17 @@
 //! Landing screen: paste text or open a file to begin reading.
 
-use iced::widget::{button, column, container, row, text, text_editor};
+use iced::widget::{button, column, container, row, scrollable, text, text_editor};
 use iced::{Element, Fill, Length};
 use speedreading_app_core::AppState;
 
-use crate::Message;
+use crate::{HistoryRow, Message};
 
 pub fn view<'a>(
     state: &'a AppState,
     paste_content: &'a text_editor::Content,
+    history: &'a [HistoryRow],
+    pending_delete: Option<&'a (String, String)>,
+    file_not_found_error: Option<&'a str>,
 ) -> Element<'a, Message> {
     let title = text("SpeedReader").size(36);
 
