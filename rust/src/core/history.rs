@@ -252,20 +252,22 @@ mod tests {
     }
 
     #[test]
-    fn test_load_history_ordered_by_opened_at_desc() {
+    fn test_load_history_ordered_by_updated_at_desc() {
         let conn = temp_db();
-        // Insert two rows with different opened_at via direct SQL to control timing
+        // hash_old has opened_at=3000 (higher than hash_new) but updated_at=1000 (lower)
+        // hash_new has opened_at=500 (lower than hash_old) but updated_at=2000 (higher)
+        // Expected: hash_new appears first because updated_at controls the sort, not opened_at
         conn.execute_batch(
             "INSERT INTO file_sessions
              (file_hash, file_name, file_path, word_index, total_words, wpm, words_per_group, opened_at, updated_at)
-             VALUES ('hash_old', 'old.txt', '/tmp/old.txt', 0, 50, 300, 1, 1000, 1000);
+             VALUES ('hash_old', 'old.txt', '/tmp/old.txt', 0, 50, 300, 1, 3000, 1000);
              INSERT INTO file_sessions
              (file_hash, file_name, file_path, word_index, total_words, wpm, words_per_group, opened_at, updated_at)
-             VALUES ('hash_new', 'new.txt', '/tmp/new.txt', 0, 50, 300, 1, 2000, 2000);",
+             VALUES ('hash_new', 'new.txt', '/tmp/new.txt', 0, 50, 300, 1, 500, 2000);",
         ).expect("seed");
         let history = load_history(&conn).expect("load");
         assert_eq!(history.len(), 2);
-        assert_eq!(history[0].file_hash, "hash_new", "most recent first");
+        assert_eq!(history[0].file_hash, "hash_new", "most recently updated first (updated_at controls sort)");
         assert_eq!(history[1].file_hash, "hash_old");
     }
 
