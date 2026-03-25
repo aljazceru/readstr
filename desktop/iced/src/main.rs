@@ -51,6 +51,14 @@ impl AppManager {
     }
 }
 
+// ── HistoryRow ───────────────────────────────────────────────────────────────
+
+#[derive(Clone)]
+struct HistoryRow {
+    entry: speedreading_app_core::HistoryEntry,
+    is_missing: bool,
+}
+
 // ── DesktopReconciler ────────────────────────────────────────────────────────
 
 struct DesktopReconciler {
@@ -127,6 +135,10 @@ enum App {
         wpm_preview: u32,
         group_preview: u32,
         dark_mode: bool,
+        history: Vec<HistoryRow>,
+        last_history_revision: u64,
+        pending_delete: Option<(String, String)>,  // (file_hash, file_name) awaiting confirm
+        file_not_found_error: Option<String>,
     },
 }
 
@@ -152,6 +164,12 @@ enum Message {
     ToggleTheme,
     // Generic dispatch wrapper
     Dispatch(AppAction),
+    // History
+    ResumeFile(String),                          // file_hash
+    ResumeMissingFile(String),                   // file_hash (unused — picker handles it)
+    ConfirmDeletePrompt(String, String),         // (file_hash, file_name)
+    ConfirmDelete,
+    CancelDelete,
 }
 
 impl App {
@@ -168,6 +186,10 @@ impl App {
                     wpm_preview: wpm,
                     group_preview: wpg,
                     dark_mode: load_theme_from_disk(),
+                    history: vec![],
+                    last_history_revision: 0,
+                    pending_delete: None,
+                    file_not_found_error: None,
                 }
             }
             Err(error) => Self::BootError { error },
@@ -195,12 +217,27 @@ impl App {
                 wpm_preview,
                 group_preview,
                 dark_mode,
+                history,
+                last_history_revision,
+                pending_delete,
+                file_not_found_error,
             } => match message {
                 Message::CoreUpdated => {
                     let latest = manager.state();
                     if latest.rev > state.rev {
                         *wpm_preview = latest.wpm;
                         *group_preview = latest.words_per_group;
+                        if latest.history_revision != *last_history_revision {
+                            *last_history_revision = latest.history_revision;
+                            let raw = manager.ffi.get_history();
+                            *history = raw
+                                .into_iter()
+                                .map(|e| {
+                                    let is_missing = !std::path::Path::new(&e.file_path).exists();
+                                    HistoryRow { entry: e, is_missing }
+                                })
+                                .collect();
+                        }
                         *state = latest;
                     }
                     Task::none()
@@ -211,6 +248,7 @@ impl App {
                 }
                 Message::OpenFile => open_file_task(),
                 Message::FileChosen(path) => {
+                    *file_not_found_error = None;
                     manager.dispatch(AppAction::PushScreen {
                         screen: speedreading_app_core::Screen::Reading,
                     });
@@ -257,6 +295,30 @@ impl App {
                     manager.dispatch(action);
                     Task::none()
                 }
+                Message::ResumeFile(file_hash) => {
+                    // Do NOT dispatch PushScreen — on_parse_complete in actor.rs pushes Screen::Reading
+                    // Dispatching PushScreen here would cause a double-push
+                    manager.dispatch(AppAction::ResumeFile { file_hash });
+                    Task::none()
+                }
+                Message::ResumeMissingFile(_file_hash) => {
+                    *file_not_found_error = Some("File not found — please re-locate it".to_string());
+                    open_file_task()
+                }
+                Message::ConfirmDeletePrompt(file_hash, file_name) => {
+                    *pending_delete = Some((file_hash, file_name));
+                    Task::none()
+                }
+                Message::ConfirmDelete => {
+                    if let Some((file_hash, _)) = pending_delete.take() {
+                        manager.dispatch(AppAction::DeleteSession { file_hash });
+                    }
+                    Task::none()
+                }
+                Message::CancelDelete => {
+                    *pending_delete = None;
+                    Task::none()
+                }
             },
         }
     }
@@ -280,6 +342,9 @@ impl App {
                 wpm_preview,
                 group_preview,
                 dark_mode,
+                history,
+                pending_delete,
+                file_not_found_error,
                 ..
             } => {
                 let theme_label = if *dark_mode { "Light" } else { "Dark" };
@@ -289,7 +354,7 @@ impl App {
                     .width(Fill);
 
                 let screen: Element<'_, Message> = match state.router.current_screen() {
-                    Screen::Landing => views::landing::view(state, paste_content),
+                    Screen::Landing => views::landing::view(state, paste_content, history, pending_delete.as_ref(), file_not_found_error.as_deref()),
                     Screen::Reading => {
                         views::reading::view(state, *wpm_preview, *group_preview)
                     }
