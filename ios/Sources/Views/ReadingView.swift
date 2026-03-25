@@ -13,10 +13,16 @@ struct ReadingView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {  // 20pt section spacing (UI-SPEC)
-            // RSVP word display area — 120pt height (UI-SPEC)
+            // RSVP word display area — systemFill rounded background, 24pt/32pt internal padding (UI-SPEC D-04, D-18)
             wordDisplayArea
-                .frame(height: 120)
                 .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
+                .padding(.horizontal, 32)
+                .background(
+                    Color(.systemFill),
+                    in: RoundedRectangle(cornerRadius: 12)
+                )
+                .frame(minHeight: 120)
 
             // Controls row: Play/Pause + Seek bar — 12pt spacing (UI-SPEC)
             HStack(spacing: 12) {
@@ -26,7 +32,7 @@ struct ReadingView: View {
                         systemImage: manager.state.isPlaying ? "pause.fill" : "play.fill"
                     )
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.borderedProminent)
 
                 // Seek bar — dispatches on drag commit only (UI-SPEC Interaction Contracts)
                 Slider(
