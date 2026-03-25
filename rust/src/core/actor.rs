@@ -380,6 +380,9 @@ impl ActorState {
                         self.playback_start_index = saved.word_index;
                         self.state.wpm = saved.wpm;
                         self.state.words_per_group = saved.words_per_group;
+                        // Refresh shared history so landing screen shows current progress % immediately (UI-02)
+                        self.refresh_shared_history(conn);
+                        self.state.history_revision += 1;
                     }
                     Ok(None) => {
                         // First time this file is opened — insert row with word_index=0
