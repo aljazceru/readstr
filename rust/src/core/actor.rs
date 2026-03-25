@@ -990,6 +990,50 @@ mod tests {
         }
     }
 
+    /// UI-02: resuming an existing session must increment history_revision and refresh shared_history.
+    #[test]
+    fn test_resume_existing_session_refreshes_history() {
+        let data_dir = std::env::temp_dir()
+            .join(format!("rmp_test_resume_hist_{}", std::process::id()))
+            .to_string_lossy()
+            .to_string();
+        std::fs::create_dir_all(&data_dir).unwrap();
+
+        let conn = open_db(&data_dir).unwrap();
+        let file_hash = "g".repeat(64);
+        // Pre-seed file_sessions at word_index=50, total_words=100
+        conn.execute(
+            "INSERT INTO file_sessions
+             (file_hash, file_name, file_path, word_index, total_words, wpm, words_per_group, opened_at, updated_at)
+             VALUES (?1, 'resume.txt', '/tmp/resume.txt', 50, 100, 300, 1, 1000, 1000)",
+            rusqlite::params![file_hash],
+        ).unwrap();
+        drop(conn);
+
+        let shared = make_shared_history();
+        let mut actor = ActorState::new(&data_dir, Arc::clone(&shared));
+        let words: Vec<String> = (0..100).map(|i| format!("word{i}")).collect();
+
+        actor.on_parse_complete(
+            words,
+            Some(file_hash),
+            Some("resume.txt".to_string()),
+            Some("/tmp/resume.txt".to_string()),
+        );
+
+        assert_eq!(
+            actor.state.history_revision, 1,
+            "history_revision must be 1 after resume of existing session"
+        );
+
+        let history = shared.read().unwrap();
+        assert_eq!(history.len(), 1, "shared_history must have exactly 1 entry");
+        assert_eq!(
+            history[0].progress_percent, 50.0,
+            "progress_percent must be 50.0 (word_index=50, total_words=100)"
+        );
+    }
+
     /// Deleting a different file's session must not clear current_file_hash.
     #[test]
     fn test_delete_inactive_session_does_not_clear_hash() {
