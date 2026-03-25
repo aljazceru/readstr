@@ -1,6 +1,6 @@
 //! Landing screen: paste text or open a file to begin reading.
 
-use iced::widget::{button, column, container, row, scrollable, text, text_editor};
+use iced::widget::{button, column, container, row, text, text_editor};
 use iced::{Element, Fill, Length};
 use speedreading_app_core::AppState;
 
@@ -70,7 +70,7 @@ pub fn view<'a>(
     } else {
         let header = text("─ Recent Files ─").size(14);
         let rows: Vec<Element<'_, Message>> = history.iter().map(|hr| history_row(hr)).collect();
-        let list = scrollable(column(rows).spacing(8));
+        let list = column(rows).spacing(8);
         Some(column![header, list].spacing(8).into())
     };
 
