@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     MainApp(
                         manager = manager,
+                        darkTheme = darkMode,
                         onToggleTheme = {
                             scope.launch {
                                 applicationContext.dataStore.edit { prefs ->
