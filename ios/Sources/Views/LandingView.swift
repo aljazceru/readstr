@@ -141,9 +141,16 @@ struct LandingView: View {
 
     private func historyRow(_ item: HistoryEntryUi) -> some View {
         HStack(spacing: 8) {
-            // Icon — warning for missing, document for normal (D-08, D-11)
-            Text(item.isMissing ? "⚠️" : "📄")
-                .accessibilityLabel(item.isMissing ? "File not found" : "Document")
+            // Icon — SF Symbol: warning for missing, document for normal (D-07, D-08, D-11)
+            if item.isMissing {
+                Image(systemName: "exclamationmark.triangle")
+                    .foregroundColor(.secondary)
+                    .accessibilityLabel("File not found")
+            } else {
+                Image(systemName: "doc")
+                    .foregroundColor(.secondary)
+                    .accessibilityLabel("Document")
+            }
 
             // File name + optional "File not found" sublabel
             VStack(alignment: .leading, spacing: 2) {
