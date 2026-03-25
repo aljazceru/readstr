@@ -468,7 +468,7 @@ impl ActorState {
         self.state.display = Some(display);
     }
 
-    fn save_current_session(&self) {
+    fn save_current_session(&mut self) {
         if let Some(ref conn) = self.db {
             if !self.words.is_empty() {
                 // sessions singleton (id=1) — WPM/words_per_group for all sessions (D-10)
@@ -490,6 +490,9 @@ impl ActorState {
                         self.state.wpm,
                         self.state.words_per_group,
                     ).ok();
+                    // Refresh shared history so landing screen shows current progress % (UI-02)
+                    self.refresh_shared_history(conn);
+                    self.state.history_revision += 1;
                 }
             }
         }
@@ -991,6 +994,60 @@ mod tests {
             let found = crate::core::history::lookup_file_session(conn, &hash).expect("lookup");
             assert!(found.is_none(), "deleted row must not be re-inserted after Pause");
         }
+    }
+
+    /// UI-02: save_current_session must refresh shared_history and increment history_revision.
+    #[test]
+    fn test_save_current_session_refreshes_history() {
+        let data_dir = std::env::temp_dir()
+            .join(format!("rmp_test_save_refresh_{}", std::process::id()))
+            .to_string_lossy()
+            .to_string();
+        std::fs::create_dir_all(&data_dir).unwrap();
+
+        let conn = open_db(&data_dir).unwrap();
+        let file_hash = "h".repeat(64);
+        // Pre-seed at word_index=25, total_words=100 (25%)
+        conn.execute(
+            "INSERT INTO file_sessions
+             (file_hash, file_name, file_path, word_index, total_words, wpm, words_per_group, opened_at, updated_at)
+             VALUES (?1, 'save.txt', '/tmp/save.txt', 25, 100, 300, 1, 1000, 1000)",
+            rusqlite::params![file_hash],
+        ).unwrap();
+        drop(conn);
+
+        let shared = make_shared_history();
+        let mut actor = ActorState::new(&data_dir, Arc::clone(&shared));
+        let words: Vec<String> = (0..100).map(|i| format!("word{i}")).collect();
+
+        // on_parse_complete restores to word_index=25 and increments history_revision to 1
+        actor.on_parse_complete(
+            words,
+            Some(file_hash.clone()),
+            Some("save.txt".to_string()),
+            Some("/tmp/save.txt".to_string()),
+        );
+
+        // Simulate reader advancing to word 75 (75%)
+        actor.state.current_word_index = 75;
+        actor.state.total_words = 100;
+
+        // Before fix: save_current_session does NOT refresh shared_history
+        // After fix: it must refresh and increment revision
+        let revision_before = actor.state.history_revision;
+        actor.save_current_session();
+
+        assert!(
+            actor.state.history_revision > revision_before,
+            "history_revision must increment after save_current_session"
+        );
+
+        let history = shared.read().unwrap();
+        assert_eq!(history.len(), 1, "shared_history must have exactly 1 entry");
+        assert_eq!(
+            history[0].progress_percent, 75.0,
+            "progress_percent must be 75.0 (word_index=75, total_words=100) after save"
+        );
     }
 
     /// UI-02: resuming an existing session must increment history_revision and refresh shared_history.
