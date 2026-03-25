@@ -86,13 +86,13 @@ pub fn update_progress(
     Ok(())
 }
 
-/// Load all history rows ordered by opened_at descending (most recently opened first).
+/// Load all history rows ordered by updated_at descending (most recently read/paused first).
 pub fn load_history(conn: &rusqlite::Connection) -> anyhow::Result<Vec<FileSessionRow>> {
     let mut stmt = conn.prepare(
         "SELECT file_hash, file_name, file_path, word_index, total_words,
                 wpm, words_per_group, opened_at, updated_at
          FROM file_sessions
-         ORDER BY opened_at DESC",
+         ORDER BY updated_at DESC",
     )?;
     let rows = stmt
         .query_map([], |row| {
