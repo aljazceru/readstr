@@ -1,6 +1,10 @@
 package dev.disobey.speedreadingapp.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -11,7 +15,7 @@ import dev.disobey.speedreadingapp.rust.AppAction
 import dev.disobey.speedreadingapp.ui.components.RsvpDisplay
 
 @Composable
-fun ReadingScreen(manager: AppManager, onToggleTheme: () -> Unit = {}) {
+fun ReadingScreen(manager: AppManager, darkTheme: Boolean = false, onToggleTheme: () -> Unit = {}) {
     val state = manager.state
 
     // Local preview states — update from core on state change (same pattern as iOS)
@@ -41,10 +45,12 @@ fun ReadingScreen(manager: AppManager, onToggleTheme: () -> Unit = {}) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             TextButton(onClick = { manager.dispatch(AppAction.PopScreen) }) {
-                Text("← Back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                Spacer(Modifier.width(4.dp))
+                Text("Back")
             }
             TextButton(onClick = onToggleTheme) {
-                Text("🌓")
+                Text(if (darkTheme) "Light" else "Dark")
             }
         }
 
@@ -73,7 +79,12 @@ fun ReadingScreen(manager: AppManager, onToggleTheme: () -> Unit = {}) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Button(onClick = { manager.dispatch(AppAction.Toggle) }) {
-                Text(if (state.isPlaying) "⏸ Pause" else "▶ Play")
+                Icon(
+                    if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = if (state.isPlaying) "Pause" else "Play"
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(if (state.isPlaying) "Pause" else "Play")
             }
             if (isFinished) {
                 Spacer(modifier = Modifier.width(12.dp))

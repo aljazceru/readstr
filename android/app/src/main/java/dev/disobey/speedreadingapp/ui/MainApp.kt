@@ -10,7 +10,7 @@ import dev.disobey.speedreadingapp.ui.screens.LandingScreen
 import dev.disobey.speedreadingapp.ui.screens.ReadingScreen
 
 @Composable
-fun MainApp(manager: AppManager, onToggleTheme: () -> Unit = {}) {
+fun MainApp(manager: AppManager, darkTheme: Boolean = false, onToggleTheme: () -> Unit = {}) {
     val state = manager.state
     val router = state.router
     val currentScreen = router.screenStack.lastOrNull() ?: router.defaultScreen
@@ -27,6 +27,7 @@ fun MainApp(manager: AppManager, onToggleTheme: () -> Unit = {}) {
             Screen.LANDING -> LandingScreen(manager = manager)
             Screen.READING -> ReadingScreen(
                 manager = manager,
+                darkTheme = darkTheme,
                 onToggleTheme = onToggleTheme
             )
         }
