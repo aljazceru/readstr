@@ -46,7 +46,28 @@ pub fn view<'a>(
         .on_press(Message::LoadPastedText);
 
     let file_btn = button("Open File")
-        .style(button::secondary)
+        .style(|theme: &iced::Theme, status| {
+            use iced::widget::button::Status;
+            use iced::{Background, Border, Color};
+            let palette = theme.extended_palette();
+            let primary_color = palette.primary.base.color;
+            let alpha = match status {
+                Status::Hovered => 0.8,
+                Status::Pressed => 0.6,
+                Status::Disabled => 0.3,
+                Status::Active => 1.0,
+            };
+            iced::widget::button::Style {
+                background: Some(Background::Color(Color::TRANSPARENT)),
+                text_color: Color { a: alpha, ..primary_color },
+                border: Border {
+                    color: Color { a: alpha, ..primary_color },
+                    width: 1.5,
+                    radius: 2.0.into(),
+                },
+                ..iced::widget::button::Style::default()
+            }
+        })
         .on_press(Message::OpenFile);
 
     let buttons = row![paste_btn, file_btn].spacing(12);
