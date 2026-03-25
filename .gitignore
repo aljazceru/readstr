@@ -11,6 +11,9 @@ ios/.build/
 ios/*.xcodeproj
 android/app/src/main/jniLibs/
 android/.gradle/
+android/.idea/
 android/build/
 android/app/build/
 android/local.properties
+*.a
+*.xcframework
