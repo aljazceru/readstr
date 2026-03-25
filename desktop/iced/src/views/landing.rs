@@ -41,9 +41,13 @@ pub fn view<'a>(
         .on_action(Message::PasteAction)
         .height(180);
 
-    let paste_btn = button("Start Reading").on_press(Message::LoadPastedText);
+    let paste_btn = button("Start Reading")
+        .style(button::primary)
+        .on_press(Message::LoadPastedText);
 
-    let file_btn = button("Open File (txt / epub / pdf)").on_press(Message::OpenFile);
+    let file_btn = button("Open File")
+        .style(button::secondary)
+        .on_press(Message::OpenFile);
 
     let buttons = row![paste_btn, file_btn].spacing(12);
 
@@ -68,7 +72,7 @@ pub fn view<'a>(
     let history_section: Option<Element<'_, Message>> = if history.is_empty() {
         None
     } else {
-        let header = text("─ Recent Files ─").size(14);
+        let header = text("Recent Files").size(14);
         let rows: Vec<Element<'_, Message>> = history.iter().map(|hr| history_row(hr)).collect();
         let list = column(rows).spacing(8);
         Some(column![header, list].spacing(8).into())
@@ -90,7 +94,7 @@ pub fn view<'a>(
 }
 
 fn history_row(hr: &HistoryRow) -> Element<'_, Message> {
-    let icon = if hr.is_missing { "⚠" } else { "📄" };
+    let icon = if hr.is_missing { "!" } else { "·" };
     let pct = format!("{}%", hr.entry.progress_percent as u32);
     let file_hash = hr.entry.file_hash.clone();
     let file_hash_del = hr.entry.file_hash.clone();
@@ -116,8 +120,8 @@ fn history_row(hr: &HistoryRow) -> Element<'_, Message> {
         text(icon),
         name_col,
         text(pct).size(14),
-        button("Resume").on_press(resume_msg),
-        button("🗑").on_press(Message::ConfirmDeletePrompt(file_hash_del, file_name)),
+        button("Resume").style(button::primary).on_press(resume_msg),
+        button("×").style(button::text).on_press(Message::ConfirmDeletePrompt(file_hash_del, file_name)),
     ]
     .spacing(8)
     .align_y(iced::Alignment::Center)
