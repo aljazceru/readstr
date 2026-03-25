@@ -15,5 +15,6 @@ android/.idea/
 android/build/
 android/app/build/
 android/local.properties
+android/android/
 *.a
 *.xcframework
