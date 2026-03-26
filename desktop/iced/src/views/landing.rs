@@ -1,7 +1,7 @@
 //! Landing screen: paste text or open a file to begin reading.
 
 use iced::widget::{button, column, container, rich_text, row, span, text, text_editor};
-use iced::{Background, Border, Element, Fill, Length};
+use iced::{Background, Border, Element, Fill};
 use speedreading_app_core::AppState;
 
 use crate::{HistoryRow, Message, SYNE, ACCENT_ORANGE_DARK};

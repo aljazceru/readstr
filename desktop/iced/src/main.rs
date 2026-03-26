@@ -1,4 +1,4 @@
-use iced::widget::{button, column, container, row, text, text_editor};
+use iced::widget::{column, container, text, text_editor};
 use iced::{Element, Fill, Font, Subscription, Task};
 use iced::theme::Palette;
 use std::sync::Arc;
