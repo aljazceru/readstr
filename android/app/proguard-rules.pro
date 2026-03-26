@@ -11,5 +11,8 @@
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
 
+# Google Fonts
+-keep class androidx.compose.ui.text.googlefonts.** { *; }
+
 # DataStore
 -keepclassmembers class * extends com.google.protobuf.GeneratedMessageLite { <fields>; }

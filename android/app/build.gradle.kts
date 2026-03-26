@@ -96,4 +96,5 @@ dependencies {
 
     // DataStore for settings/theme persistence
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+    implementation("androidx.compose.ui:ui-text-google-fonts")
 }

@@ -5,9 +5,15 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
@@ -16,12 +22,21 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.disobey.speedreadingapp.AppManager
 import dev.disobey.speedreadingapp.rust.AppAction
 import dev.disobey.speedreadingapp.rust.Screen
+import dev.disobey.speedreadingapp.ui.theme.AccentOrange
+import dev.disobey.speedreadingapp.ui.theme.SyneFontFamily
 import java.io.File
 
 @Composable
@@ -48,10 +63,9 @@ fun LandingScreen(manager: AppManager) {
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
         uri ?: return@rememberLauncherForActivityResult
-        // On cancel: uri is null, return early — fileNotFoundError stays visible (D-10)
         val path = copySandbox(context, uri)
         if (path != null) {
-            fileNotFoundError = null  // Clear error only on successful pick
+            fileNotFoundError = null
             manager.dispatch(AppAction.PushScreen(screen = Screen.READING))
             manager.dispatch(AppAction.FileSelected(path = path))
         }
@@ -60,69 +74,155 @@ fun LandingScreen(manager: AppManager) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(32.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(horizontal = 24.dp),
     ) {
-        Text("SpeedReader", style = MaterialTheme.typography.headlineLarge)
+        Spacer(modifier = Modifier.height(52.dp))
 
-        OutlinedTextField(
-            value = pasteText,
-            onValueChange = { pasteText = it },
-            placeholder = { Text("Paste text here to start reading...") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(180.dp),
-            maxLines = 8
+        // ── Brand ──────────────────────────────────────────────────────────
+        Text(
+            text = buildAnnotatedString {
+                withStyle(SpanStyle(color = MaterialTheme.colorScheme.onBackground)) {
+                    append("read")
+                }
+                withStyle(SpanStyle(color = AccentOrange)) {
+                    append("str")
+                }
+            },
+            fontFamily = SyneFontFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = 32.sp,
+            letterSpacing = (-0.5).sp,
         )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = {
-                if (pasteText.isNotBlank()) {
-                    manager.dispatch(AppAction.PushScreen(screen = Screen.READING))
-                    manager.dispatch(AppAction.LoadText(text = pasteText))
-                }
-            }) {
-                Text("Start Reading")
-            }
+        Text(
+            text = "speed reading, focused",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            letterSpacing = 0.05.sp,
+        )
 
-            OutlinedButton(onClick = {
-                fileLauncher.launch(
-                    arrayOf("text/plain", "application/epub+zip", "application/pdf")
+        Spacer(modifier = Modifier.height(36.dp))
+
+        // ── Paste area ─────────────────────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    shape = RoundedCornerShape(10.dp)
                 )
-            }) {
-                Text("Open File")
+        ) {
+            BasicTextField(
+                value = pasteText,
+                onValueChange = { pasteText = it },
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                    lineHeight = 22.sp,
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .padding(16.dp),
+                decorationBox = { inner ->
+                    if (pasteText.isEmpty()) {
+                        Text(
+                            "paste text to read…",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        )
+                    }
+                    inner()
+                }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Action buttons ─────────────────────────────────────────────────
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Button(
+                onClick = {
+                    if (pasteText.isNotBlank()) {
+                        manager.dispatch(AppAction.PushScreen(screen = Screen.READING))
+                        manager.dispatch(AppAction.LoadText(text = pasteText))
+                    }
+                },
+                modifier = Modifier.weight(1f).height(48.dp),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AccentOrange,
+                    contentColor = Color(0xFF1A0A00),
+                ),
+                enabled = pasteText.isNotBlank(),
+            ) {
+                Text(
+                    "Read",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    letterSpacing = 0.03.sp,
+                )
+            }
+
+            OutlinedButton(
+                onClick = {
+                    fileLauncher.launch(
+                        arrayOf("text/plain", "application/epub+zip", "application/pdf")
+                    )
+                },
+                modifier = Modifier.weight(1f).height(48.dp),
+                shape = RoundedCornerShape(10.dp),
+                border = ButtonDefaults.outlinedButtonBorder.copy(
+                    width = 1.dp,
+                ),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+            ) {
+                Text(
+                    "Open file",
+                    fontSize = 15.sp,
+                )
             }
         }
 
-        when {
-            state.isLoading -> Text(
-                "Loading file...",
-                style = MaterialTheme.typography.bodySmall
-            )
-            state.error != null -> Text(
-                "Error: ${state.error}",
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall
-            )
-            fileNotFoundError != null -> Text(
-                fileNotFoundError!!,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall
+        // ── Status messages ────────────────────────────────────────────────
+        val errorText = when {
+            state.error != null -> state.error
+            fileNotFoundError != null -> fileNotFoundError
+            else -> null
+        }
+        if (state.isLoading || errorText != null) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = if (state.isLoading) "loading…" else errorText ?: "",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (state.isLoading)
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                else
+                    MaterialTheme.colorScheme.error,
+                letterSpacing = 0.03.sp,
             )
         }
 
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // ── History ────────────────────────────────────────────────────────
         HistorySection(
             history = manager.history,
             onResume = { item ->
                 if (item.isMissing) {
-                    // D-10: show error + open re-locate picker; do NOT dispatch ResumeFile
-                    fileNotFoundError = "File not found — please re-locate it"
+                    fileNotFoundError = "file not found — tap to re-locate"
                     relocateLauncher.launch(
                         arrayOf("text/plain", "application/epub+zip", "application/pdf")
                     )
                 } else {
                     fileNotFoundError = null
-                    // Do NOT dispatch PushScreen — on_parse_complete pushes Screen.READING (Pitfall 1)
                     manager.dispatch(AppAction.ResumeFile(fileHash = item.entry.fileHash))
                 }
             },
@@ -139,8 +239,21 @@ fun LandingScreen(manager: AppManager) {
                 showDeleteConfirm = false
                 pendingDeleteEntry = null
             },
+            containerColor = MaterialTheme.colorScheme.surface,
             title = {
-                Text("Delete entry for ${pendingDeleteEntry!!.entry.fileName}?")
+                Text(
+                    "Remove entry?",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            },
+            text = {
+                Text(
+                    pendingDeleteEntry!!.entry.fileName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
             },
             confirmButton = {
                 TextButton(
@@ -152,17 +265,15 @@ fun LandingScreen(manager: AppManager) {
                         pendingDeleteEntry = null
                     }
                 ) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                    Text("Remove", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = {
-                        showDeleteConfirm = false
-                        pendingDeleteEntry = null
-                    }
-                ) {
-                    Text("Keep Entry")
+                TextButton(onClick = {
+                    showDeleteConfirm = false
+                    pendingDeleteEntry = null
+                }) {
+                    Text("Keep")
                 }
             }
         )
@@ -199,19 +310,19 @@ fun HistorySection(
     onResume: (AppManager.HistoryEntryUi) -> Unit,
     onDeleteRequest: (AppManager.HistoryEntryUi) -> Unit
 ) {
-    if (history.isEmpty()) return  // D-03: hidden when empty, no header
+    if (history.isEmpty()) return
 
-    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+    Column {
         Text(
-            "Recent Files",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            "recent",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            letterSpacing = 0.12.sp,
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        LazyColumn {
+        Spacer(modifier = Modifier.height(10.dp))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             items(history, key = { it.entry.fileHash }) { item ->
                 HistoryRow(item = item, onResume = onResume, onDeleteRequest = onDeleteRequest)
-                HorizontalDivider()
             }
         }
     }
@@ -226,26 +337,24 @@ fun HistoryRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { onResume(item) }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // File icon — warning for missing (D-08, D-11)
-        if (item.isMissing) {
-            Icon(
-                Icons.Default.Warning,
-                contentDescription = "File not found",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
-            Icon(
-                Icons.Default.Description,
-                contentDescription = "Document",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        // Icon
+        Icon(
+            imageVector = if (item.isMissing) Icons.Default.Warning else Icons.Default.Description,
+            contentDescription = null,
+            tint = if (item.isMissing)
+                MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+            else
+                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier.size(18.dp)
+        )
 
-        // File name + optional sublabel (D-08)
+        // Name + sublabel
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = item.entry.fileName,
@@ -253,42 +362,48 @@ fun HistoryRow(
                 color = if (item.isMissing)
                     MaterialTheme.colorScheme.onSurfaceVariant
                 else
-                    MaterialTheme.colorScheme.onBackground,
+                    MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
             if (item.isMissing) {
                 Text(
-                    text = "File not found",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    "file not found",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                 )
             }
         }
 
-        // Progress % — integer, no decimal (UI-SPEC Pitfall 6)
-        Text(
-            text = "${item.entry.progressPercent.toInt()}%",
-            style = MaterialTheme.typography.bodySmall
-        )
-
-        // Resume button (D-12)
-        Button(
-            onClick = { onResume(item) },
-            modifier = Modifier.heightIn(min = 44.dp)
+        // Progress pill
+        Box(
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(horizontal = 8.dp, vertical = 3.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Text("Resume")
+            Text(
+                text = "${item.entry.progressPercent.toInt()}%",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (item.entry.progressPercent > 0f)
+                    AccentOrange
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium,
+            )
         }
 
-        // Trash icon — delete request (D-06)
+        // Delete
         IconButton(
             onClick = { onDeleteRequest(item) },
-            modifier = Modifier.size(44.dp)
+            modifier = Modifier.size(36.dp)
         ) {
             Icon(
                 Icons.Default.Delete,
-                contentDescription = "Delete ${item.entry.fileName} history entry",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                contentDescription = "Remove",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                modifier = Modifier.size(18.dp)
             )
         }
     }
