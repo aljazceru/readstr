@@ -1,3 +1,5 @@
+.claude/
+.planning/
 /target
 .direnv/
 .DS_Store
