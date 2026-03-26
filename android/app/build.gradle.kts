@@ -4,12 +4,12 @@ plugins {
 }
 
 android {
-    namespace = "dev.disobey.speedreadingapp"
+    namespace = "dev.disobey.readstr"
     compileSdk = 35
     ndkVersion = "28.2.13676358"
 
     defaultConfig {
-        applicationId = "dev.disobey.speedreadingapp"
+        applicationId = "dev.disobey.readstr"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -64,7 +64,7 @@ android {
 
 tasks.register("ensureUniffiGenerated") {
     doLast {
-        val out = file("src/main/java/dev/disobey/speedreadingapp/rust/speedreading_app_core.kt")
+        val out = file("src/main/java/dev/disobey/readstr/rust/speedreading_app_core.kt")
         if (!out.exists()) {
             throw GradleException("Missing UniFFI Kotlin bindings. Run `rmp bindings kotlin` first.")
         }

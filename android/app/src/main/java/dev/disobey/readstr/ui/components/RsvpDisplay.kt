@@ -1,4 +1,4 @@
-package dev.disobey.speedreadingapp.ui.components
+package dev.disobey.readstr.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -17,9 +17,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.disobey.speedreadingapp.rust.WordDisplay
-import dev.disobey.speedreadingapp.ui.theme.AccentOrange
-import dev.disobey.speedreadingapp.ui.theme.JetBrainsMonoFontFamily
+import dev.disobey.readstr.rust.WordDisplay
+import dev.disobey.readstr.ui.theme.AccentOrange
+import dev.disobey.readstr.ui.theme.JetBrainsMonoFontFamily
 
 @Composable
 fun RsvpDisplay(display: WordDisplay?, isLoading: Boolean) {

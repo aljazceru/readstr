@@ -1,4 +1,4 @@
-package dev.disobey.speedreadingapp.ui.screens
+package dev.disobey.readstr.ui.screens
 
 import android.content.Context
 import android.net.Uri
@@ -32,11 +32,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.disobey.speedreadingapp.AppManager
-import dev.disobey.speedreadingapp.rust.AppAction
-import dev.disobey.speedreadingapp.rust.Screen
-import dev.disobey.speedreadingapp.ui.theme.AccentOrange
-import dev.disobey.speedreadingapp.ui.theme.SyneFontFamily
+import dev.disobey.readstr.AppManager
+import dev.disobey.readstr.rust.AppAction
+import dev.disobey.readstr.rust.Screen
+import dev.disobey.readstr.ui.theme.AccentOrange
+import dev.disobey.readstr.ui.theme.SyneFontFamily
 import java.io.File
 
 @Composable

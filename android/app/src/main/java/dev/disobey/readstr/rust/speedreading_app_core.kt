@@ -3,7 +3,7 @@
 
 @file:Suppress("NAME_SHADOWING")
 
-package dev.disobey.speedreadingapp.rust
+package dev.disobey.readstr.rust
 
 // Common helper code.
 //
@@ -1809,7 +1809,7 @@ public object FfiConverterTypeWordSegment: FfiConverterRustBuffer<WordSegment> {
 sealed class AppAction {
     
     data class PushScreen(
-        val `screen`: dev.disobey.speedreadingapp.rust.Screen) : AppAction()
+        val `screen`: dev.disobey.readstr.rust.Screen) : AppAction()
         
     {
         
@@ -2172,7 +2172,7 @@ public object FfiConverterTypeAppAction : FfiConverterRustBuffer<AppAction>{
 sealed class AppUpdate {
     
     data class FullState(
-        val v1: dev.disobey.speedreadingapp.rust.AppState) : AppUpdate()
+        val v1: dev.disobey.readstr.rust.AppState) : AppUpdate()
         
     {
         
@@ -2181,7 +2181,7 @@ sealed class AppUpdate {
     }
     
     data class PlaybackTick(
-        val `display`: dev.disobey.speedreadingapp.rust.WordDisplay, 
+        val `display`: dev.disobey.readstr.rust.WordDisplay, 
         val `progressPercent`: kotlin.Float, 
         val `currentWordIndex`: kotlin.ULong) : AppUpdate()
         

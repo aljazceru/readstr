@@ -10,7 +10,7 @@ bindings = "uniffi"
 bundle_id = "dev.disobey.speedreading"
 
 [android]
-app_id = "dev.disobey.speedreadingapp"
+app_id = "dev.disobey.readstr"
 
 [desktop]
 targets = ["iced"]
