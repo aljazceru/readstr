@@ -1,4 +1,4 @@
-package dev.disobey.speedreadingapp
+package dev.disobey.readstr
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -13,9 +13,9 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
-import dev.disobey.speedreadingapp.rust.AppAction
-import dev.disobey.speedreadingapp.ui.MainApp
-import dev.disobey.speedreadingapp.ui.theme.AppTheme
+import dev.disobey.readstr.rust.AppAction
+import dev.disobey.readstr.ui.MainApp
+import dev.disobey.readstr.ui.theme.AppTheme
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 

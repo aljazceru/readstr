@@ -1,13 +1,13 @@
-package dev.disobey.speedreadingapp.ui
+package dev.disobey.readstr.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.runtime.Composable
-import dev.disobey.speedreadingapp.AppManager
-import dev.disobey.speedreadingapp.rust.AppAction
-import dev.disobey.speedreadingapp.rust.Screen
-import dev.disobey.speedreadingapp.ui.screens.LandingScreen
-import dev.disobey.speedreadingapp.ui.screens.ReadingScreen
+import dev.disobey.readstr.AppManager
+import dev.disobey.readstr.rust.AppAction
+import dev.disobey.readstr.rust.Screen
+import dev.disobey.readstr.ui.screens.LandingScreen
+import dev.disobey.readstr.ui.screens.ReadingScreen
 
 @Composable
 fun MainApp(manager: AppManager, darkTheme: Boolean = false, onToggleTheme: () -> Unit = {}) {

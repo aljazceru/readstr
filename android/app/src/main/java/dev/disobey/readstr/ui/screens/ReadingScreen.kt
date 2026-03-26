@@ -1,4 +1,4 @@
-package dev.disobey.speedreadingapp.ui.screens
+package dev.disobey.readstr.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -17,10 +17,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.disobey.speedreadingapp.AppManager
-import dev.disobey.speedreadingapp.rust.AppAction
-import dev.disobey.speedreadingapp.ui.components.RsvpDisplay
-import dev.disobey.speedreadingapp.ui.theme.AccentOrange
+import dev.disobey.readstr.AppManager
+import dev.disobey.readstr.rust.AppAction
+import dev.disobey.readstr.ui.components.RsvpDisplay
+import dev.disobey.readstr.ui.theme.AccentOrange
 
 @Composable
 fun ReadingScreen(manager: AppManager, darkTheme: Boolean = false, onToggleTheme: () -> Unit = {}) {

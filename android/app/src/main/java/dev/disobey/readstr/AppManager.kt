@@ -1,4 +1,4 @@
-package dev.disobey.speedreadingapp
+package dev.disobey.readstr
 
 import android.content.Context
 import android.os.Handler
@@ -6,14 +6,14 @@ import android.os.Looper
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import dev.disobey.speedreadingapp.rust.AppAction
-import dev.disobey.speedreadingapp.rust.AppReconciler
-import dev.disobey.speedreadingapp.rust.AppState
-import dev.disobey.speedreadingapp.rust.AppUpdate
-import dev.disobey.speedreadingapp.rust.FfiApp
-import dev.disobey.speedreadingapp.rust.HistoryEntry
-import dev.disobey.speedreadingapp.rust.Router
-import dev.disobey.speedreadingapp.rust.Screen
+import dev.disobey.readstr.rust.AppAction
+import dev.disobey.readstr.rust.AppReconciler
+import dev.disobey.readstr.rust.AppState
+import dev.disobey.readstr.rust.AppUpdate
+import dev.disobey.readstr.rust.FfiApp
+import dev.disobey.readstr.rust.HistoryEntry
+import dev.disobey.readstr.rust.Router
+import dev.disobey.readstr.rust.Screen
 
 class AppManager private constructor(context: Context) : AppReconciler {
     private val mainHandler = Handler(Looper.getMainLooper())

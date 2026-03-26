@@ -1,4 +1,4 @@
-package dev.disobey.speedreadingapp.ui.theme
+package dev.disobey.readstr.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -11,7 +11,7 @@ import androidx.compose.ui.text.googlefonts.Font
 import androidx.compose.ui.text.googlefonts.GoogleFont
 import androidx.compose.material3.Typography
 import androidx.compose.ui.unit.sp
-import dev.disobey.speedreadingapp.R
+import dev.disobey.readstr.R
 
 // ── Google Fonts ─────────────────────────────────────────────────────────────
 
