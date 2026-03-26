@@ -1,10 +1,10 @@
 //! Landing screen: paste text or open a file to begin reading.
 
-use iced::widget::{button, column, container, row, text, text_editor};
-use iced::{Element, Fill, Length};
+use iced::widget::{button, column, container, rich_text, row, span, text, text_editor};
+use iced::{Background, Border, Element, Fill, Length};
 use speedreading_app_core::AppState;
 
-use crate::{HistoryRow, Message};
+use crate::{HistoryRow, Message, SYNE, ACCENT_ORANGE_DARK};
 
 pub fn view<'a>(
     state: &'a AppState,
@@ -20,7 +20,7 @@ pub fn view<'a>(
             text(format!("Delete entry for {}?", file_name)).size(16),
             row![
                 button("Keep Entry").on_press(Message::CancelDelete),
-                button("Delete").on_press(Message::ConfirmDelete),
+                button("Delete Entry").on_press(Message::ConfirmDelete),
             ]
             .spacing(12),
         ]
@@ -34,7 +34,18 @@ pub fn view<'a>(
             .into();
     }
 
-    let title = text("SpeedReader").size(36);
+    let logo_spans: Vec<iced::widget::text::Span<'static>> = vec![
+        span("read").font(SYNE).size(32.0),
+        span("str").font(SYNE).size(32.0).color(ACCENT_ORANGE_DARK),
+    ];
+    let logotype: Element<'_, Message> = rich_text(logo_spans).into();
+    let subtitle: Element<'_, Message> = text("speed reading, focused")
+        .size(14)
+        .style(|theme: &iced::Theme| iced::widget::text::Style {
+            color: Some(theme.extended_palette().background.weak.color),
+        })
+        .into();
+    let title = column(vec![logotype, subtitle]).spacing(4);
 
     let editor = text_editor(paste_content)
         .placeholder("Paste text here to start reading...")
@@ -93,9 +104,13 @@ pub fn view<'a>(
     let history_section: Option<Element<'_, Message>> = if history.is_empty() {
         None
     } else {
-        let header = text("Recent Files").size(14);
+        let header = text("recent")
+            .size(14)
+            .style(|theme: &iced::Theme| iced::widget::text::Style {
+                color: Some(theme.extended_palette().background.weak.color),
+            });
         let rows: Vec<Element<'_, Message>> = history.iter().map(|hr| history_row(hr)).collect();
-        let list = column(rows).spacing(8);
+        let list = column(rows).spacing(4);
         Some(column![header, list].spacing(8).into())
     };
 
@@ -116,20 +131,50 @@ pub fn view<'a>(
 
 fn history_row(hr: &HistoryRow) -> Element<'_, Message> {
     let icon = if hr.is_missing { "!" } else { "·" };
-    let pct = format!("{}%", hr.entry.progress_percent as u32);
+    let pct_value = hr.entry.progress_percent as u32;
+    let pct = format!("{}%", pct_value);
     let file_hash = hr.entry.file_hash.clone();
     let file_hash_del = hr.entry.file_hash.clone();
     let file_name = hr.entry.file_name.clone();
 
     let name_col: Element<'_, Message> = if hr.is_missing {
         column![
-            text(&hr.entry.file_name).color([0.5, 0.5, 0.5]),
-            text("File not found").size(14).color([0.5, 0.5, 0.5]),
+            text(&hr.entry.file_name).style(|theme: &iced::Theme| iced::widget::text::Style {
+                color: Some(theme.extended_palette().background.weak.color),
+            }),
+            text("File not found").size(12).style(|theme: &iced::Theme| iced::widget::text::Style {
+                color: Some(theme.extended_palette().background.weak.color),
+            }),
         ]
         .into()
     } else {
         text(&hr.entry.file_name).into()
     };
+
+    let progress_pill: Element<'_, Message> = container(
+        text(pct)
+            .size(12)
+            .style(move |theme: &iced::Theme| iced::widget::text::Style {
+                color: Some(if pct_value >= 1 {
+                    // AccentOrange from theme primary
+                    theme.extended_palette().primary.base.color
+                } else {
+                    theme.extended_palette().background.weak.color
+                }),
+            })
+    )
+    .padding([2, 8])
+    .style(|theme: &iced::Theme| iced::widget::container::Style {
+        background: Some(Background::Color(
+            theme.extended_palette().background.strong.color
+        )),
+        border: Border {
+            radius: 12.0.into(),
+            ..Default::default()
+        },
+        ..Default::default()
+    })
+    .into();
 
     let resume_msg = if hr.is_missing {
         Message::ResumeMissingFile(file_hash)
@@ -140,9 +185,9 @@ fn history_row(hr: &HistoryRow) -> Element<'_, Message> {
     row![
         text(icon),
         name_col,
-        text(pct).size(14),
-        button("Resume").style(button::primary).on_press(resume_msg),
-        button("×").style(button::text).on_press(Message::ConfirmDeletePrompt(file_hash_del, file_name)),
+        progress_pill,
+        button("Resume Reading").style(button::primary).on_press(resume_msg),
+        button("Delete").style(button::text).on_press(Message::ConfirmDeletePrompt(file_hash_del, file_name)),
     ]
     .spacing(8)
     .align_y(iced::Alignment::Center)
