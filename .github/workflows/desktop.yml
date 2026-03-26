@@ -25,6 +25,9 @@ jobs:
             artifact: readstr-windows
 
     runs-on: ${{ matrix.os }}
+    concurrency:
+      group: desktop-${{ github.ref }}-${{ matrix.name }}
+      cancel-in-progress: true
 
     steps:
       - uses: actions/checkout@v4
