@@ -282,8 +282,8 @@ impl ActorState {
     pub fn handle_internal(
         &mut self,
         event: InternalEvent,
-        runtime: &tokio::runtime::Runtime,
-        core_tx: &Sender<CoreMsg>,
+        _runtime: &tokio::runtime::Runtime,
+        _core_tx: &Sender<CoreMsg>,
         update_tx: &Sender<AppUpdate>,
         shared_state: &Arc<RwLock<AppState>>,
     ) {
