@@ -6,11 +6,22 @@ use speedreading_app_core::{AppAction, AppState, AppUpdate, FfiApp, Screen};
 mod views;
 mod widgets;
 
+fn load_icon() -> Option<iced::window::Icon> {
+    let bytes = include_bytes!("icon.png");
+    let img = image::load_from_memory(bytes).ok()?.into_rgba8();
+    let (w, h) = img.dimensions();
+    iced::window::icon::from_rgba(img.into_raw(), w, h).ok()
+}
+
 fn main() -> iced::Result {
     iced::application(App::new, App::update, App::view)
         .title("SpeedReader")
         .subscription(App::subscription)
         .theme(App::theme)
+        .window(iced::window::Settings {
+            icon: load_icon(),
+            ..iced::window::Settings::default()
+        })
         .run()
 }
 
