@@ -1,10 +1,47 @@
-use iced::widget::{button, column, container, text, text_editor};
-use iced::{Element, Fill, Subscription, Task};
+use iced::widget::{button, column, container, row, text, text_editor};
+use iced::{Element, Fill, Font, Subscription, Task};
+use iced::theme::Palette;
 use std::sync::Arc;
 use speedreading_app_core::{AppAction, AppState, AppUpdate, FfiApp, Screen};
 
 mod views;
 mod widgets;
+
+// ── Font constants ────────────────────────────────────────────────────────────
+
+const SYNE_BOLD: &[u8]           = include_bytes!("fonts/Syne-Bold.ttf");
+const JETBRAINS_MONO_REG: &[u8]  = include_bytes!("fonts/JetBrainsMono-Regular.ttf");
+const JETBRAINS_MONO_BOLD: &[u8] = include_bytes!("fonts/JetBrainsMono-Bold.ttf");
+
+pub const SYNE: Font           = Font::with_name("Syne");
+pub const JETBRAINS_MONO: Font = Font::with_name("JetBrains Mono");
+
+pub const ACCENT_ORANGE_DARK:  iced::Color = iced::Color { r: 1.0,   g: 0.420, b: 0.169, a: 1.0 };
+pub const ACCENT_ORANGE_LIGHT: iced::Color = iced::Color { r: 0.898, g: 0.322, b: 0.039, a: 1.0 };
+
+// ── Theme palette functions ───────────────────────────────────────────────────
+
+fn dark_theme() -> iced::Theme {
+    iced::Theme::custom("ReadstrDark".to_string(), Palette {
+        background: iced::Color::from_rgb(0.055, 0.047, 0.071),
+        text:       iced::Color::from_rgb(0.918, 0.902, 0.957),
+        primary:    ACCENT_ORANGE_DARK,
+        success:    iced::Color::from_rgb(0.071, 0.400, 0.314),
+        warning:    iced::Color::from_rgb(1.0,   0.792, 0.310),
+        danger:     iced::Color::from_rgb(1.0,   0.333, 0.333),
+    })
+}
+
+fn light_theme() -> iced::Theme {
+    iced::Theme::custom("ReadstrLight".to_string(), Palette {
+        background: iced::Color::from_rgb(0.965, 0.953, 1.0),
+        text:       iced::Color::from_rgb(0.102, 0.094, 0.145),
+        primary:    ACCENT_ORANGE_LIGHT,
+        success:    iced::Color::from_rgb(0.071, 0.400, 0.314),
+        warning:    iced::Color::from_rgb(1.0,   0.792, 0.310),
+        danger:     iced::Color::from_rgb(0.800, 0.133, 0.133),
+    })
+}
 
 fn load_icon() -> Option<iced::window::Icon> {
     let bytes = include_bytes!("icon.png");
@@ -181,6 +218,8 @@ enum Message {
     ConfirmDeletePrompt(String, String),         // (file_hash, file_name)
     ConfirmDelete,
     CancelDelete,
+    // Font loading
+    FontLoaded,
 }
 
 impl App {
@@ -205,7 +244,12 @@ impl App {
             }
             Err(error) => Self::BootError { error },
         };
-        (app, Task::none())
+        let font_tasks = Task::batch([
+            iced::font::load(SYNE_BOLD).map(|_| Message::FontLoaded),
+            iced::font::load(JETBRAINS_MONO_REG).map(|_| Message::FontLoaded),
+            iced::font::load(JETBRAINS_MONO_BOLD).map(|_| Message::FontLoaded),
+        ]);
+        (app, font_tasks)
     }
 
     fn subscription(&self) -> Subscription<Message> {
@@ -330,6 +374,7 @@ impl App {
                     *pending_delete = None;
                     Task::none()
                 }
+                Message::FontLoaded => Task::none(),
             },
         }
     }
@@ -358,28 +403,22 @@ impl App {
                 file_not_found_error,
                 ..
             } => {
-                let theme_label = if *dark_mode { "Light" } else { "Dark" };
-                let theme_btn = button(theme_label).on_press(Message::ToggleTheme);
-                let top_bar = container(theme_btn)
-                    .align_x(iced::alignment::Horizontal::Right)
-                    .width(Fill);
-
                 let screen: Element<'_, Message> = match state.router.current_screen() {
                     Screen::Landing => views::landing::view(state, paste_content, history, pending_delete.as_ref(), file_not_found_error.as_deref()),
                     Screen::Reading => {
-                        views::reading::view(state, *wpm_preview, *group_preview)
+                        views::reading::view(state, *wpm_preview, *group_preview, *dark_mode)
                     }
                 };
 
-                column![top_bar, screen].into()
+                screen
             }
         }
     }
 
     fn theme(app: &App) -> iced::Theme {
         match app {
-            App::Loaded { dark_mode: true, .. } => iced::Theme::Dark,
-            _ => iced::Theme::Light,
+            App::Loaded { dark_mode: true, .. } => dark_theme(),
+            _ => light_theme(),
         }
     }
 }
