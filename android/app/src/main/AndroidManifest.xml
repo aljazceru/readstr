@@ -6,7 +6,7 @@
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="Speedreading App"
+        android:label="Readstr"
         android:supportsRtl="true"
         android:theme="@style/Theme.App">
 
