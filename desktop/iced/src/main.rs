@@ -15,7 +15,7 @@ fn load_icon() -> Option<iced::window::Icon> {
 
 fn main() -> iced::Result {
     iced::application(App::new, App::update, App::view)
-        .title("SpeedReader")
+        .title("Readstr")
         .subscription(App::subscription)
         .theme(App::theme)
         .window(iced::window::Settings {
