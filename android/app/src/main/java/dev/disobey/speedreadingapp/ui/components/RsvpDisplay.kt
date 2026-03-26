@@ -28,9 +28,10 @@ fun RsvpDisplay(display: WordDisplay?, isLoading: Boolean) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .height(160.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(stageColor)
-            .padding(horizontal = 28.dp, vertical = 36.dp),
+            .padding(horizontal = 28.dp, vertical = 16.dp),
         contentAlignment = Alignment.Center
     ) {
         when {
