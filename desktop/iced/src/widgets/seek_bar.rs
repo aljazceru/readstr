@@ -15,6 +15,8 @@ pub struct SeekBar<'a, Message> {
     on_seek: Box<dyn Fn(f32) -> Message + 'a>,
     width: Length,
     height: f32,
+    fill_color: Color,
+    track_color: Color,
 }
 
 impl<'a, Message> SeekBar<'a, Message> {
@@ -29,7 +31,14 @@ impl<'a, Message> SeekBar<'a, Message> {
             on_seek: Box::new(on_seek),
             width: Length::Fill,
             height: 8.0,
+            fill_color: Color { r: 1.0, g: 0.420, b: 0.169, a: 1.0 },  // AccentOrange dark
+            track_color: Color::from_rgba(1.0, 1.0, 1.0, 0.15),          // semi-transparent white (default dark)
         }
+    }
+
+    pub fn track_color(mut self, color: Color) -> Self {
+        self.track_color = color;
+        self
     }
 }
 
@@ -105,7 +114,7 @@ where
                 shadow: Default::default(),
                 snap: true,
             },
-            Color::from_rgb(0.7, 0.7, 0.7),
+            self.track_color,
         );
 
         // Filled portion
@@ -123,7 +132,7 @@ where
                     shadow: Default::default(),
                     snap: true,
                 },
-                Color::from_rgb(0.2, 0.5, 0.9),
+                self.fill_color,
             );
         }
     }
