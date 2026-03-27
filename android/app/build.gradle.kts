@@ -16,6 +16,8 @@ android {
         versionName = "0.1.0"
     }
 
+    setProperty("archivesBaseName", "readstr")
+
     buildTypes {
         debug {
             applicationIdSuffix = ".dev"
