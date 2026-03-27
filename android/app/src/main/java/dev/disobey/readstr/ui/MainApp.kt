@@ -24,7 +24,7 @@ fun MainApp(manager: AppManager, darkTheme: Boolean = false, onToggleTheme: () -
         label = "screen_navigation"
     ) { screen ->
         when (screen) {
-            Screen.LANDING -> LandingScreen(manager = manager)
+            Screen.LANDING -> LandingScreen(manager = manager, darkTheme = darkTheme, onToggleTheme = onToggleTheme)
             Screen.READING -> ReadingScreen(
                 manager = manager,
                 darkTheme = darkTheme,

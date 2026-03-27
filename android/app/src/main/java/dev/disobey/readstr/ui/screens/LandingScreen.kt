@@ -40,7 +40,7 @@ import dev.disobey.readstr.ui.theme.SyneFontFamily
 import java.io.File
 
 @Composable
-fun LandingScreen(manager: AppManager) {
+fun LandingScreen(manager: AppManager, darkTheme: Boolean = false, onToggleTheme: () -> Unit = {}) {
     val context = LocalContext.current
     var pasteText by remember { mutableStateOf("") }
     val state = manager.state
@@ -77,6 +77,17 @@ fun LandingScreen(manager: AppManager) {
             .padding(horizontal = 24.dp),
     ) {
         Spacer(modifier = Modifier.height(52.dp))
+
+        // ── Nav row ────────────────────────────────────────────────────────
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = onToggleTheme) {
+                Text(
+                    if (darkTheme) "light" else "dark",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
 
         // ── Brand ──────────────────────────────────────────────────────────
         Text(
