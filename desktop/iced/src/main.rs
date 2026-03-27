@@ -404,7 +404,7 @@ impl App {
                 ..
             } => {
                 let screen: Element<'_, Message> = match state.router.current_screen() {
-                    Screen::Landing => views::landing::view(state, paste_content, history, pending_delete.as_ref(), file_not_found_error.as_deref()),
+                    Screen::Landing => views::landing::view(state, paste_content, history, pending_delete.as_ref(), file_not_found_error.as_deref(), *dark_mode),
                     Screen::Reading => {
                         views::reading::view(state, *wpm_preview, *group_preview, *dark_mode)
                     }

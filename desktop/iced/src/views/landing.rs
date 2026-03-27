@@ -12,6 +12,7 @@ pub fn view<'a>(
     history: &'a [HistoryRow],
     pending_delete: Option<&'a (String, String)>,
     file_not_found_error: Option<&'a str>,
+    dark_mode: bool,
 ) -> Element<'a, Message> {
     // Confirmation dialog overlay — shown instead of normal landing content
     if let Some((file_hash, file_name)) = pending_delete {
@@ -33,6 +34,16 @@ pub fn view<'a>(
             .center_y(Fill)
             .into();
     }
+
+    let theme_label = if dark_mode { "Light" } else { "Dark" };
+    let theme_btn = button(theme_label)
+        .style(button::text)
+        .on_press(Message::ToggleTheme);
+    let nav_row = row![
+        iced::widget::Space::new().width(Fill),
+        theme_btn,
+    ]
+    .align_y(iced::Alignment::Center);
 
     let logo_spans: Vec<iced::widget::text::Span<'static>> = vec![
         span("read").font(SYNE).size(32.0),
@@ -115,6 +126,7 @@ pub fn view<'a>(
     };
 
     let mut content_items: Vec<Element<'_, Message>> = vec![
+        nav_row.into(),
         title.into(),
         editor.into(),
         buttons.into(),
