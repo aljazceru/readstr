@@ -16,15 +16,15 @@ jobs:
         include:
           - os: ubuntu-latest
             name: linux
-            binary: speedreading-app_core_desktop_iced
+            binary: readstr_desktop
             artifact: readstr-linux
           - os: macos-latest
             name: macos
-            binary: speedreading-app_core_desktop_iced
+            binary: readstr_desktop
             artifact: readstr-macos
           - os: windows-latest
             name: windows
-            binary: speedreading-app_core_desktop_iced.exe
+            binary: readstr_desktop.exe
             artifact: readstr-windows
 
     runs-on: ${{ matrix.os }}
@@ -60,7 +60,7 @@ jobs:
             pkg-config
 
       - name: Build desktop release
-        run: cargo build -p speedreading-app_core_desktop_iced --release
+        run: cargo build -p readstr_desktop --release
 
       - name: Upload binary
         uses: actions/upload-artifact@v4

@@ -40,12 +40,12 @@ jobs:
         run: cargo install cargo-ndk --locked
 
       - name: Build host Rust (for uniffi-bindgen)
-        run: cargo build -p speedreading-app_core --release
+        run: cargo build -p readstr_core --release
 
       - name: Generate Kotlin bindings
         run: |
           cargo run -p uniffi-bindgen -- generate \
-            --library target/release/libspeedreading_app_core.so \
+            --library target/release/libreadstr_core.so \
             --language kotlin \
             --out-dir android/app/src/main/java \
             --no-format \
@@ -55,7 +55,7 @@ jobs:
         run: |
           cargo ndk -o android/app/src/main/jniLibs -P 26 \
             -t arm64-v8a -t armeabi-v7a -t x86_64 \
-            build -p speedreading-app_core --release
+            build -p readstr_core --release
 
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@v4
