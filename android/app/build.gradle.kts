@@ -64,7 +64,7 @@ android {
 
 tasks.register("ensureUniffiGenerated") {
     doLast {
-        val out = file("src/main/java/dev/disobey/readstr/rust/speedreading_app_core.kt")
+        val out = file("src/main/java/dev/disobey/readstr/rust/readstr_core.kt")
         if (!out.exists()) {
             throw GradleException("Missing UniFFI Kotlin bindings. Run `rmp bindings kotlin` first.")
         }

@@ -1,6 +1,6 @@
 //! Integration test for session persistence using a real temp file DB.
 
-use speedreading_app_core::core::session::{open_db, restore_session, save_session, SessionData};
+use readstr_core::core::session::{open_db, restore_session, save_session, SessionData};
 use std::path::PathBuf;
 
 fn temp_dir() -> PathBuf {

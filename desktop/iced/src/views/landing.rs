@@ -2,7 +2,7 @@
 
 use iced::widget::{button, column, container, rich_text, row, span, text, text_editor};
 use iced::{Background, Border, Element, Fill};
-use speedreading_app_core::AppState;
+use readstr_core::AppState;
 
 use crate::{HistoryRow, Message, SYNE, ACCENT_ORANGE_DARK};
 

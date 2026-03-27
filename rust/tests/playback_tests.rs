@@ -3,8 +3,8 @@
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use flume::unbounded;
-use speedreading_app_core::core::actor::{ActorState, compute_word_index};
-use speedreading_app_core::updates::{AppUpdate, CoreMsg, InternalEvent};
+use readstr_core::core::actor::{ActorState, compute_word_index};
+use readstr_core::updates::{AppUpdate, CoreMsg, InternalEvent};
 
 #[test]
 fn test_compute_word_index_basic() {
@@ -65,7 +65,7 @@ fn test_actor_end_of_document_stop() {
 
     let (core_tx, _core_rx) = unbounded::<CoreMsg>();
     let (update_tx, _update_rx) = unbounded::<AppUpdate>();
-    let shared_state = Arc::new(RwLock::new(speedreading_app_core::state::AppState::initial()));
+    let shared_state = Arc::new(RwLock::new(readstr_core::state::AppState::initial()));
 
     // Create actor with 5 words loaded manually (bypass DB by using "")
     let mut actor = ActorState::new("", std::sync::Arc::new(std::sync::RwLock::new(vec![])));
@@ -127,7 +127,7 @@ fn test_word_advance_tick_updates_shared_state() {
 
     let (core_tx, _core_rx) = unbounded::<CoreMsg>();
     let (update_tx, update_rx) = unbounded::<AppUpdate>();
-    let shared_state = Arc::new(RwLock::new(speedreading_app_core::state::AppState::initial()));
+    let shared_state = Arc::new(RwLock::new(readstr_core::state::AppState::initial()));
 
     // 10-word document, playing from the start
     let words: Vec<String> = (1u32..=10).map(|i| format!("word{i}")).collect();

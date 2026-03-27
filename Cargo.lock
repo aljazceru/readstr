@@ -3210,6 +3210,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "readstr_core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "epub",
+ "flume",
+ "pdf-extract",
+ "rusqlite",
+ "sha2",
+ "tokio",
+ "uniffi",
+]
+
+[[package]]
+name = "readstr_desktop"
+version = "0.1.0"
+dependencies = [
+ "dirs-next",
+ "flume",
+ "iced",
+ "image",
+ "readstr_core",
+ "rfd",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3705,32 +3731,6 @@ dependencies = [
  "web-sys",
  "windows-sys 0.61.2",
  "x11rb",
-]
-
-[[package]]
-name = "speedreading-app_core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "epub",
- "flume",
- "pdf-extract",
- "rusqlite",
- "sha2",
- "tokio",
- "uniffi",
-]
-
-[[package]]
-name = "speedreading-app_core_desktop_iced"
-version = "0.1.0"
-dependencies = [
- "dirs-next",
- "flume",
- "iced",
- "image",
- "rfd",
- "speedreading-app_core",
 ]
 
 [[package]]

@@ -2,7 +2,7 @@ use iced::widget::{column, container, text, text_editor};
 use iced::{Element, Fill, Font, Subscription, Task};
 use iced::theme::Palette;
 use std::sync::Arc;
-use speedreading_app_core::{AppAction, AppState, AppUpdate, FfiApp, Screen};
+use readstr_core::{AppAction, AppState, AppUpdate, FfiApp, Screen};
 
 mod views;
 mod widgets;
@@ -103,7 +103,7 @@ impl AppManager {
 
 #[derive(Clone)]
 struct HistoryRow {
-    entry: speedreading_app_core::HistoryEntry,
+    entry: readstr_core::HistoryEntry,
     is_missing: bool,
 }
 
@@ -113,7 +113,7 @@ struct DesktopReconciler {
     tx: flume::Sender<()>,
 }
 
-impl speedreading_app_core::AppReconciler for DesktopReconciler {
+impl readstr_core::AppReconciler for DesktopReconciler {
     fn reconcile(&self, _update: AppUpdate) {
         let _ = self.tx.send(());
     }
@@ -305,7 +305,7 @@ impl App {
                 Message::FileChosen(path) => {
                     *file_not_found_error = None;
                     manager.dispatch(AppAction::PushScreen {
-                        screen: speedreading_app_core::Screen::Reading,
+                        screen: readstr_core::Screen::Reading,
                     });
                     manager.dispatch(AppAction::FileSelected { path });
                     Task::none()
@@ -319,7 +319,7 @@ impl App {
                     let text_str = paste_content.text();
                     if !text_str.trim().is_empty() {
                         manager.dispatch(AppAction::PushScreen {
-                            screen: speedreading_app_core::Screen::Reading,
+                            screen: readstr_core::Screen::Reading,
                         });
                         manager.dispatch(AppAction::LoadText { text: text_str });
                     }

@@ -3,7 +3,7 @@ name = "speedreading-app"
 org = "dev.disobey"
 
 [core]
-crate = "speedreading-app_core"
+crate = "readstr_core"
 bindings = "uniffi"
 
 [ios]
@@ -16,4 +16,4 @@ app_id = "dev.disobey.readstr"
 targets = ["iced"]
 
 [desktop.iced]
-package = "speedreading-app_core_desktop_iced"
+package = "readstr_desktop"

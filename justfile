@@ -1,9 +1,9 @@
 set shell := ["bash", "-c"]
 
-CORE_CRATE := "speedreading-app_core"
-LIB_NAME := "speedreading_app_core"
-XCF_NAME := "SpeedreadingAppCore"
-ICED_PACKAGE := "speedreading-app_core_desktop_iced"
+CORE_CRATE := "readstr_core"
+LIB_NAME := "readstr_core"
+XCF_NAME := "ReadstrCore"
+ICED_PACKAGE := "readstr_desktop"
 DYLIB_EXT := if os() == "macos" { "dylib" } else { "so" }
 
 default:

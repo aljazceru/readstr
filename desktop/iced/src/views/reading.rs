@@ -3,7 +3,7 @@
 use iced::widget::{button, column, container, rich_text, row, slider, span, text};
 use iced::font::{Family, Weight};
 use iced::{Background, Border, Color, Element, Fill, Font, Length};
-use speedreading_app_core::{AppAction, AppState, WordDisplay};
+use readstr_core::{AppAction, AppState, WordDisplay};
 
 use crate::widgets::seek_bar::seek_bar;
 use crate::{ACCENT_ORANGE_DARK, ACCENT_ORANGE_LIGHT, JETBRAINS_MONO, Message};

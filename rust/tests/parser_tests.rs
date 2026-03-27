@@ -1,8 +1,8 @@
 //! Integration tests for file parsers.
 //! These tests read actual fixture files and verify non-empty word arrays.
 
-use speedreading_app_core::core::parser::{detect_and_parse, parse_epub, parse_pdf, parse_txt, tokenize};
-use speedreading_app_core::state::{compute_orp_anchor, WordSegment};
+use readstr_core::core::parser::{detect_and_parse, parse_epub, parse_pdf, parse_txt, tokenize};
+use readstr_core::state::{compute_orp_anchor, WordSegment};
 
 fn fixture_path(name: &str) -> String {
     let manifest = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR");

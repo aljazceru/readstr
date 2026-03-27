@@ -59,7 +59,7 @@ open class RustBuffer : Structure() {
     companion object {
         internal fun alloc(size: ULong = 0UL) = uniffiRustCall() { status ->
             // Note: need to convert the size to a `Long` value to make this work with JVM.
-            UniffiLib.ffi_speedreading_app_core_rustbuffer_alloc(size.toLong(), status)
+            UniffiLib.ffi_readstr_core_rustbuffer_alloc(size.toLong(), status)
         }.also {
             if(it.data == null) {
                throw RuntimeException("RustBuffer.alloc() returned null data pointer (size=${size})")
@@ -75,7 +75,7 @@ open class RustBuffer : Structure() {
         }
 
         internal fun free(buf: RustBuffer.ByValue) = uniffiRustCall() { status ->
-            UniffiLib.ffi_speedreading_app_core_rustbuffer_free(buf, status)
+            UniffiLib.ffi_readstr_core_rustbuffer_free(buf, status)
         }
     }
 
@@ -355,7 +355,7 @@ private fun findLibraryName(componentName: String): String {
     if (libOverride != null) {
         return libOverride
     }
-    return "speedreading_app_core"
+    return "readstr_core"
 }
 
 // Define FFI callback types
@@ -654,23 +654,23 @@ internal open class UniffiVTableCallbackInterfaceAppReconciler(
 // We now use JNA's "direct mapping" - unclear if same considerations apply exactly.
 internal object IntegrityCheckingUniffiLib {
     init {
-        Native.register(IntegrityCheckingUniffiLib::class.java, findLibraryName(componentName = "speedreading_app_core"))
+        Native.register(IntegrityCheckingUniffiLib::class.java, findLibraryName(componentName = "readstr_core"))
         uniffiCheckContractApiVersion(this)
         uniffiCheckApiChecksums(this)
     }
-    external fun uniffi_speedreading_app_core_checksum_method_ffiapp_dispatch(
+    external fun uniffi_readstr_core_checksum_method_ffiapp_dispatch(
     ): Short
-    external fun uniffi_speedreading_app_core_checksum_method_ffiapp_get_history(
+    external fun uniffi_readstr_core_checksum_method_ffiapp_get_history(
     ): Short
-    external fun uniffi_speedreading_app_core_checksum_method_ffiapp_listen_for_updates(
+    external fun uniffi_readstr_core_checksum_method_ffiapp_listen_for_updates(
     ): Short
-    external fun uniffi_speedreading_app_core_checksum_method_ffiapp_state(
+    external fun uniffi_readstr_core_checksum_method_ffiapp_state(
     ): Short
-    external fun uniffi_speedreading_app_core_checksum_constructor_ffiapp_new(
+    external fun uniffi_readstr_core_checksum_constructor_ffiapp_new(
     ): Short
-    external fun uniffi_speedreading_app_core_checksum_method_appreconciler_reconcile(
+    external fun uniffi_readstr_core_checksum_method_appreconciler_reconcile(
     ): Short
-    external fun ffi_speedreading_app_core_uniffi_contract_version(
+    external fun ffi_readstr_core_uniffi_contract_version(
     ): Int
 
         
@@ -685,129 +685,129 @@ internal object UniffiLib {
     
 
     init {
-        Native.register(UniffiLib::class.java, findLibraryName(componentName = "speedreading_app_core"))
+        Native.register(UniffiLib::class.java, findLibraryName(componentName = "readstr_core"))
         uniffiCallbackInterfaceAppReconciler.register(this)
         
     }
-    external fun uniffi_speedreading_app_core_fn_clone_ffiapp(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun uniffi_readstr_core_fn_clone_ffiapp(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
-    external fun uniffi_speedreading_app_core_fn_free_ffiapp(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun uniffi_readstr_core_fn_free_ffiapp(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    external fun uniffi_speedreading_app_core_fn_constructor_ffiapp_new(`dataDir`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    external fun uniffi_readstr_core_fn_constructor_ffiapp_new(`dataDir`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
-    external fun uniffi_speedreading_app_core_fn_method_ffiapp_dispatch(`ptr`: Long,`action`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    external fun uniffi_readstr_core_fn_method_ffiapp_dispatch(`ptr`: Long,`action`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    external fun uniffi_speedreading_app_core_fn_method_ffiapp_get_history(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun uniffi_readstr_core_fn_method_ffiapp_get_history(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    external fun uniffi_speedreading_app_core_fn_method_ffiapp_listen_for_updates(`ptr`: Long,`reconciler`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun uniffi_readstr_core_fn_method_ffiapp_listen_for_updates(`ptr`: Long,`reconciler`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    external fun uniffi_speedreading_app_core_fn_method_ffiapp_state(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun uniffi_readstr_core_fn_method_ffiapp_state(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    external fun uniffi_speedreading_app_core_fn_init_callback_vtable_appreconciler(`vtable`: UniffiVTableCallbackInterfaceAppReconciler,
+    external fun uniffi_readstr_core_fn_init_callback_vtable_appreconciler(`vtable`: UniffiVTableCallbackInterfaceAppReconciler,
     ): Unit
-    external fun ffi_speedreading_app_core_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_readstr_core_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    external fun ffi_speedreading_app_core_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_readstr_core_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    external fun ffi_speedreading_app_core_rustbuffer_free(`buf`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_readstr_core_rustbuffer_free(`buf`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    external fun ffi_speedreading_app_core_rustbuffer_reserve(`buf`: RustBuffer.ByValue,`additional`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_readstr_core_rustbuffer_reserve(`buf`: RustBuffer.ByValue,`additional`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    external fun ffi_speedreading_app_core_rust_future_poll_u8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    external fun ffi_readstr_core_rust_future_poll_u8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_cancel_u8(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_cancel_u8(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_free_u8(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_free_u8(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_complete_u8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_readstr_core_rust_future_complete_u8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Byte
-    external fun ffi_speedreading_app_core_rust_future_poll_i8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    external fun ffi_readstr_core_rust_future_poll_i8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_cancel_i8(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_cancel_i8(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_free_i8(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_free_i8(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_complete_i8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_readstr_core_rust_future_complete_i8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Byte
-    external fun ffi_speedreading_app_core_rust_future_poll_u16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    external fun ffi_readstr_core_rust_future_poll_u16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_cancel_u16(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_cancel_u16(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_free_u16(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_free_u16(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_complete_u16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_readstr_core_rust_future_complete_u16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Short
-    external fun ffi_speedreading_app_core_rust_future_poll_i16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    external fun ffi_readstr_core_rust_future_poll_i16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_cancel_i16(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_cancel_i16(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_free_i16(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_free_i16(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_complete_i16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_readstr_core_rust_future_complete_i16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Short
-    external fun ffi_speedreading_app_core_rust_future_poll_u32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    external fun ffi_readstr_core_rust_future_poll_u32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_cancel_u32(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_cancel_u32(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_free_u32(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_free_u32(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_complete_u32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_readstr_core_rust_future_complete_u32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Int
-    external fun ffi_speedreading_app_core_rust_future_poll_i32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    external fun ffi_readstr_core_rust_future_poll_i32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_cancel_i32(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_cancel_i32(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_free_i32(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_free_i32(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_complete_i32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_readstr_core_rust_future_complete_i32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Int
-    external fun ffi_speedreading_app_core_rust_future_poll_u64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    external fun ffi_readstr_core_rust_future_poll_u64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_cancel_u64(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_cancel_u64(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_free_u64(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_free_u64(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_complete_u64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_readstr_core_rust_future_complete_u64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
-    external fun ffi_speedreading_app_core_rust_future_poll_i64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    external fun ffi_readstr_core_rust_future_poll_i64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_cancel_i64(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_cancel_i64(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_free_i64(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_free_i64(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_complete_i64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_readstr_core_rust_future_complete_i64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
-    external fun ffi_speedreading_app_core_rust_future_poll_f32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    external fun ffi_readstr_core_rust_future_poll_f32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_cancel_f32(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_cancel_f32(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_free_f32(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_free_f32(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_complete_f32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_readstr_core_rust_future_complete_f32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Float
-    external fun ffi_speedreading_app_core_rust_future_poll_f64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    external fun ffi_readstr_core_rust_future_poll_f64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_cancel_f64(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_cancel_f64(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_free_f64(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_free_f64(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_complete_f64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_readstr_core_rust_future_complete_f64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Double
-    external fun ffi_speedreading_app_core_rust_future_poll_rust_buffer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    external fun ffi_readstr_core_rust_future_poll_rust_buffer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_cancel_rust_buffer(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_cancel_rust_buffer(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_free_rust_buffer(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_free_rust_buffer(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_complete_rust_buffer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_readstr_core_rust_future_complete_rust_buffer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    external fun ffi_speedreading_app_core_rust_future_poll_void(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    external fun ffi_readstr_core_rust_future_poll_void(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_cancel_void(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_cancel_void(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_free_void(`handle`: Long,
+    external fun ffi_readstr_core_rust_future_free_void(`handle`: Long,
     ): Unit
-    external fun ffi_speedreading_app_core_rust_future_complete_void(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_readstr_core_rust_future_complete_void(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
 
         
@@ -817,29 +817,29 @@ private fun uniffiCheckContractApiVersion(lib: IntegrityCheckingUniffiLib) {
     // Get the bindings contract version from our ComponentInterface
     val bindings_contract_version = 30
     // Get the scaffolding contract version by calling the into the dylib
-    val scaffolding_contract_version = lib.ffi_speedreading_app_core_uniffi_contract_version()
+    val scaffolding_contract_version = lib.ffi_readstr_core_uniffi_contract_version()
     if (bindings_contract_version != scaffolding_contract_version) {
         throw RuntimeException("UniFFI contract version mismatch: try cleaning and rebuilding your project")
     }
 }
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
-    if (lib.uniffi_speedreading_app_core_checksum_method_ffiapp_dispatch() != 15128.toShort()) {
+    if (lib.uniffi_readstr_core_checksum_method_ffiapp_dispatch() != 41010.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_speedreading_app_core_checksum_method_ffiapp_get_history() != 40811.toShort()) {
+    if (lib.uniffi_readstr_core_checksum_method_ffiapp_get_history() != 40254.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_speedreading_app_core_checksum_method_ffiapp_listen_for_updates() != 54077.toShort()) {
+    if (lib.uniffi_readstr_core_checksum_method_ffiapp_listen_for_updates() != 19112.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_speedreading_app_core_checksum_method_ffiapp_state() != 50355.toShort()) {
+    if (lib.uniffi_readstr_core_checksum_method_ffiapp_state() != 9470.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_speedreading_app_core_checksum_constructor_ffiapp_new() != 12371.toShort()) {
+    if (lib.uniffi_readstr_core_checksum_constructor_ffiapp_new() != 1301.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_speedreading_app_core_checksum_method_appreconciler_reconcile() != 54322.toShort()) {
+    if (lib.uniffi_readstr_core_checksum_method_appreconciler_reconcile() != 62916.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
 }
@@ -1345,7 +1345,7 @@ open class FfiApp: Disposable, AutoCloseable, FfiAppInterface
     constructor(`dataDir`: kotlin.String) :
         this(UniffiWithHandle, 
     uniffiRustCall() { _status ->
-    UniffiLib.uniffi_speedreading_app_core_fn_constructor_ffiapp_new(
+    UniffiLib.uniffi_readstr_core_fn_constructor_ffiapp_new(
     
         FfiConverterString.lower(`dataDir`),_status)
 }
@@ -1405,7 +1405,7 @@ open class FfiApp: Disposable, AutoCloseable, FfiAppInterface
                 return;
             }
             uniffiRustCall { status ->
-                UniffiLib.uniffi_speedreading_app_core_fn_free_ffiapp(handle, status)
+                UniffiLib.uniffi_readstr_core_fn_free_ffiapp(handle, status)
             }
         }
     }
@@ -1418,7 +1418,7 @@ open class FfiApp: Disposable, AutoCloseable, FfiAppInterface
             throw InternalException("uniffiCloneHandle() called on NoHandle object");
         }
         return uniffiRustCall() { status ->
-            UniffiLib.uniffi_speedreading_app_core_fn_clone_ffiapp(handle, status)
+            UniffiLib.uniffi_readstr_core_fn_clone_ffiapp(handle, status)
         }
     }
 
@@ -1429,7 +1429,7 @@ open class FfiApp: Disposable, AutoCloseable, FfiAppInterface
         = 
     callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.uniffi_speedreading_app_core_fn_method_ffiapp_dispatch(
+    UniffiLib.uniffi_readstr_core_fn_method_ffiapp_dispatch(
         it,
         FfiConverterTypeAppAction.lower(`action`),_status)
 }
@@ -1446,7 +1446,7 @@ open class FfiApp: Disposable, AutoCloseable, FfiAppInterface
             return FfiConverterSequenceTypeHistoryEntry.lift(
     callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.uniffi_speedreading_app_core_fn_method_ffiapp_get_history(
+    UniffiLib.uniffi_readstr_core_fn_method_ffiapp_get_history(
         it,
         _status)
 }
@@ -1463,7 +1463,7 @@ open class FfiApp: Disposable, AutoCloseable, FfiAppInterface
         = 
     callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.uniffi_speedreading_app_core_fn_method_ffiapp_listen_for_updates(
+    UniffiLib.uniffi_readstr_core_fn_method_ffiapp_listen_for_updates(
         it,
         FfiConverterTypeAppReconciler.lower(`reconciler`),_status)
 }
@@ -1478,7 +1478,7 @@ open class FfiApp: Disposable, AutoCloseable, FfiAppInterface
             return FfiConverterTypeAppState.lift(
     callWithHandle {
     uniffiRustCall() { _status ->
-    UniffiLib.uniffi_speedreading_app_core_fn_method_ffiapp_state(
+    UniffiLib.uniffi_readstr_core_fn_method_ffiapp_state(
         it,
         _status)
 }
@@ -2345,7 +2345,7 @@ internal object uniffiCallbackInterfaceAppReconciler {
     // Registers the foreign callback with the Rust side.
     // This method is generated for each callback interface.
     internal fun register(lib: UniffiLib) {
-        lib.uniffi_speedreading_app_core_fn_init_callback_vtable_appreconciler(vtable)
+        lib.uniffi_readstr_core_fn_init_callback_vtable_appreconciler(vtable)
     }
 }
 
